@@ -8,7 +8,8 @@ app.use(express.json());
 
 let usuarios = [];
 let servicos = []; 
-let agendas = []; // Armazena a agenda customizada por dia do prestador
+let agendas = []; 
+let agendamentos = [];
 
 // RF01 - Cadastro
 app.post('/usuarios', (req, res) => {
@@ -40,33 +41,35 @@ app.post('/login', (req, res) => {
 
 app.get('/usuarios', (req, res) => res.json(usuarios));
 
-// RF03 - Servicos (Portfólio)
+// RF03 - Portfólio
 app.post('/servicos', (req, res) => {
     const { titulo, descricao, preco, prestadorId } = req.body;
-    const novoServico = { id: servicos.length + 1, titulo, descricao, preco, prestadorId };
+    const novoServico = { id: servicos.length + 1, titulo, descricao, preco: parseFloat(preco), prestadorId: parseInt(prestadorId) };
     servicos.push(novoServico);
-    res.status(201).json({ mensagem: "Serviço cadastrado no portfólio!", servico: novoServico });
+    res.status(201).json({ mensagem: "Serviço cadastrado!", servico: novoServico });
+});
+
+app.get('/servicos', (req, res) => {
+    const servicosComPrestador = servicos.map(s => {
+        const prestador = usuarios.find(u => u.id === s.prestadorId);
+        return { ...s, nomePrestador: prestador ? prestador.nome_completo : 'Prestador' };
+    });
+    res.json(servicosComPrestador);
 });
 
 app.get('/servicos/:prestadorId', (req, res) => {
     const { prestadorId } = req.params;
-    const meusServicos = servicos.filter(s => s.prestadorId === parseInt(prestadorId));
-    res.json(meusServicos);
+    res.json(servicos.filter(s => s.prestadorId === parseInt(prestadorId)));
 });
 
 app.delete('/servicos/:id', (req, res) => {
-    const { id } = req.params;
-    servicos = servicos.filter(s => s.id !== parseInt(id));
-    res.json({ mensagem: "Serviço removido com sucesso!" });
+    servicos = servicos.filter(s => s.id !== parseInt(req.params.id));
+    res.json({ mensagem: "Serviço removido!" });
 });
 
-// --- RF04: AGENDA CUSTOMIZADA POR DIA DA SEMANA ---
-
-// Salvar ou atualizar configuração de dia específico
+// RF04 - Agenda do Prestador
 app.post('/agenda', (req, res) => {
     const { prestadorId, dia, horaInicio, horaFim } = req.body;
-
-    // Busca agenda existente do prestador ou cria uma nova
     let agendaPrestador = agendas.find(a => a.prestadorId === parseInt(prestadorId));
 
     if (!agendaPrestador) {
@@ -74,32 +77,77 @@ app.post('/agenda', (req, res) => {
         agendas.push(agendaPrestador);
     }
 
-    // Remove o dia se ele já tiver sido configurado anteriormente
     agendaPrestador.horariosPorDia = agendaPrestador.horariosPorDia.filter(h => h.dia !== dia);
-
-    // Adiciona o novo intervalo para o dia informado
     agendaPrestador.horariosPorDia.push({ dia, horaInicio, horaFim });
 
-    res.status(201).json({ mensagem: `Horário de ${dia} configurado com sucesso!`, agenda: agendaPrestador });
+    res.status(201).json({ mensagem: `Horário de ${dia} configurado!`, agenda: agendaPrestador });
 });
 
-// Remover a configuração de um dia específico
 app.delete('/agenda/:prestadorId/:dia', (req, res) => {
     const { prestadorId, dia } = req.params;
     const agendaPrestador = agendas.find(a => a.prestadorId === parseInt(prestadorId));
-
     if (agendaPrestador) {
         agendaPrestador.horariosPorDia = agendaPrestador.horariosPorDia.filter(h => h.dia !== dia);
     }
-
-    res.json({ mensagem: `Horário de ${dia} removido com sucesso!` });
+    res.json({ mensagem: `Horário de ${dia} removido!` });
 });
 
-// Buscar agenda completa do prestador
 app.get('/agenda/:prestadorId', (req, res) => {
-    const { prestadorId } = req.params;
-    const agendaPrestador = agendas.find(a => a.prestadorId === parseInt(prestadorId));
-    res.json(agendaPrestador || { prestadorId: parseInt(prestadorId), horariosPorDia: [] });
+    const agendaPrestador = agendas.find(a => a.prestadorId === parseInt(req.params.prestadorId));
+    res.json(agendaPrestador || { prestadorId: parseInt(req.params.prestadorId), horariosPorDia: [] });
+});
+
+// RF05 - Criar Agendamento e Listar por Cliente
+app.post('/agendamentos', (req, res) => {
+    const { clienteId, servicoId, prestadorId, data, hora } = req.body;
+    const cliente = usuarios.find(u => u.id === parseInt(clienteId));
+    const servico = servicos.find(s => s.id === parseInt(servicoId));
+    const prestador = usuarios.find(u => u.id === parseInt(prestadorId));
+
+    if (!servico || !cliente) return res.status(400).json({ mensagem: "Dados inválidos." });
+
+    const novoAgendamento = {
+        id: agendamentos.length + 1,
+        clienteId: parseInt(clienteId),
+        nomeCliente: cliente.nome_completo,
+        servicoId: parseInt(servicoId),
+        tituloServico: servico.titulo,
+        precoServico: servico.preco,
+        prestadorId: parseInt(prestadorId),
+        nomePrestador: prestador ? prestador.nome_completo : 'Prestador',
+        data,
+        hora,
+        status: 'Pendente'
+    };
+
+    agendamentos.push(novoAgendamento);
+    res.status(201).json({ mensagem: "Agendamento solicitado com sucesso!", agendamento: novoAgendamento });
+});
+
+app.get('/agendamentos/cliente/:clienteId', (req, res) => {
+    res.json(agendamentos.filter(a => a.clienteId === parseInt(req.params.clienteId)));
+});
+
+// --- RF06: GERENCIAMENTO DE AGENDAMENTOS PELO PRESTADOR ---
+
+// Listar solicitações recebidas pelo prestador
+app.get('/agendamentos/prestador/:prestadorId', (req, res) => {
+    res.json(agendamentos.filter(a => a.prestadorId === parseInt(req.params.prestadorId)));
+});
+
+// Alterar status do agendamento (Confirmado / Cancelado)
+app.patch('/agendamentos/:id/status', (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body; // Expects 'Confirmado' or 'Cancelado'
+
+    const agendamento = agendamentos.find(a => a.id === parseInt(id));
+
+    if (!agendamento) {
+        return res.status(404).json({ mensagem: "Agendamento não encontrado." });
+    }
+
+    agendamento.status = status;
+    res.json({ mensagem: `Agendamento ${status.toLowerCase()} com sucesso!`, agendamento });
 });
 
 app.listen(8000, () => console.log('Servidor rodando na porta 8000'));
