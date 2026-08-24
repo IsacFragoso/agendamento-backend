@@ -1,232 +1,284 @@
 const express = require('express');
 const cors = require('cors');
+const db = require('./db');
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-let usuarios = [];
-let servicos = []; 
-let agendas = []; 
-let agendamentos = [];
-
-// Função auxiliar RF08: Cálculo de distância usando a Fórmula de Haversine
+// Função auxiliar RF08: Cálculo de distância (Haversine)
 function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
-    if (!lat1 || !lon1 || !lat2 || !lon2) return null;
-    const R = 6371; // Raio da Terra em km
-    const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLon = (lon2 - lon1) * (Math.PI / 180);
-    const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return parseFloat((R * c).toFixed(2));
+  if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+  const R = 6371;
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return parseFloat((R * c).toFixed(2));
 }
 
 // RF01 - Cadastro
-app.post('/usuarios', (req, res) => {
+app.post('/usuarios', async (req, res) => {
+  try {
     const { nome_completo, email, telefone, senha, tipo_conta } = req.body;
-    const novoUsuario = { 
-        id: usuarios.length + 1, 
-        nome_completo, 
-        email, 
-        telefone, 
-        senha, 
-        tipo_conta,
-        fotoPerfil: null,
-        documentoIdentidade: null,
-        statusIdentidade: 'Pendente',
-        endereco: null
-    };
-    usuarios.push(novoUsuario);
-    res.status(201).json({ mensagem: "Usuário cadastrado com sucesso!", usuario: novoUsuario });
+    const result = await db.query(
+      `INSERT INTO usuarios (nome_completo, email, telefone, senha, tipo_conta) 
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [nome_completo, email, telefone, senha, tipo_conta]
+    );
+    res.status(201).json({ mensagem: "Usuário cadastrado com sucesso!", usuario: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
 });
 
 // RF02 - Login
-app.post('/login', (req, res) => {
+app.post('/login', async (req, res) => {
+  try {
     const { email, senha } = req.body;
-    const usuarioEncontrado = usuarios.find(u => u.email === email && u.senha === senha);
+    const result = await db.query(
+      'SELECT id, nome_completo, email, tipo_conta, foto_perfil, status_identidade, rua, numero, bairro, cidade, latitude, longitude FROM usuarios WHERE email = $1 AND senha = $2',
+      [email, senha]
+    );
 
-    if (!usuarioEncontrado) {
-        return res.status(401).json({ mensagem: "E-mail ou senha incorretos." });
+    if (result.rows.length === 0) {
+      return res.status(401).json({ mensagem: "E-mail ou senha incorretos." });
     }
 
-    res.json({
-        mensagem: "Login realizado com sucesso!",
-        usuario: {
-            id: usuarioEncontrado.id,
-            nome_completo: usuarioEncontrado.nome_completo,
-            email: usuarioEncontrado.email,
-            tipo_conta: usuarioEncontrado.tipo_conta,
-            fotoPerfil: usuarioEncontrado.fotoPerfil,
-            statusIdentidade: usuarioEncontrado.statusIdentidade,
-            endereco: usuarioEncontrado.endereco
-        }
-    });
+    res.json({ mensagem: "Login realizado com sucesso!", usuario: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
 });
 
-app.get('/usuarios', (req, res) => res.json(usuarios));
+app.get('/usuarios', async (req, res) => {
+  try {
+    const result = await db.query('SELECT * FROM usuarios');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
 
-// RF07 - Validação de Identidade, Foto de Perfil e Endereço
-app.patch('/usuarios/:id/identidade', (req, res) => {
+// RF07 - Validação de Identidade e Endereço
+app.patch('/usuarios/:id/identidade', async (req, res) => {
+  try {
     const id = parseInt(req.params.id);
     const { fotoPerfil, documentoIdentidade, rua, numero, bairro, cidade, lat, lng } = req.body;
 
-    const usuario = usuarios.find(u => u.id === id);
-    if (!usuario) return res.status(404).json({ mensagem: "Usuário não encontrado." });
+    const statusIdentidade = documentoIdentidade ? 'Verificado' : 'Pendente';
 
-    if (fotoPerfil) usuario.fotoPerfil = fotoPerfil;
-    if (documentoIdentidade) {
-        usuario.documentoIdentidade = documentoIdentidade;
-        usuario.statusIdentidade = 'Verificado';
-    }
-    if (rua || lat) {
-        usuario.endereco = { 
-            rua: rua || '', 
-            numero: numero || '', 
-            bairro: bairro || '', 
-            cidade: cidade || '', 
-            lat: lat ? parseFloat(lat) : null, 
-            lng: lng ? parseFloat(lng) : null 
-        };
-    }
+    const result = await db.query(
+      `UPDATE usuarios 
+       SET foto_perfil = COALESCE($1, foto_perfil),
+           documento_identidade = COALESCE($2, documento_identidade),
+           status_identidade = CASE WHEN $2 IS NOT NULL THEN 'Verificado'::status_identidade_enum ELSE status_identidade END,
+           rua = COALESCE($3, rua),
+           numero = COALESCE($4, numero),
+           bairro = COALESCE($5, bairro),
+           cidade = COALESCE($6, cidade),
+           latitude = COALESCE($7, latitude),
+           longitude = COALESCE($8, longitude)
+       WHERE id = $9 RETURNING *`,
+      [fotoPerfil, documentoIdentidade, rua, numero, bairro, cidade, lat ? parseFloat(lat) : null, lng ? parseFloat(lng) : null, id]
+    );
 
-    res.json({ mensagem: "Perfil e endereço atualizados com sucesso!", usuario });
+    if (result.rows.length === 0) return res.status(404).json({ mensagem: "Usuário não encontrado." });
+
+    res.json({ mensagem: "Perfil e endereço atualizados com sucesso!", usuario: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
 });
 
 // RF03 - Portfólio
-app.post('/servicos', (req, res) => {
+app.post('/servicos', async (req, res) => {
+  try {
     const { titulo, descricao, preco, prestadorId } = req.body;
-    const novoServico = { id: servicos.length + 1, titulo, descricao, preco: parseFloat(preco), prestadorId: parseInt(prestadorId) };
-    servicos.push(novoServico);
-    res.status(201).json({ mensagem: "Serviço cadastrado!", servico: novoServico });
+    const result = await db.query(
+      'INSERT INTO servicos (titulo, descricao, preco, prestador_id) VALUES ($1, $2, $3, $4) RETURNING *',
+      [titulo, descricao, parseFloat(preco), parseInt(prestadorId)]
+    );
+    res.status(201).json({ mensagem: "Serviço cadastrado!", servico: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
 });
 
-app.get('/servicos', (req, res) => {
-    const servicosComPrestador = servicos.map(s => {
-        const prestador = usuarios.find(u => u.id === s.prestadorId);
-        return { ...s, nomePrestador: prestador ? prestador.nome_completo : 'Prestador' };
-    });
-    res.json(servicosComPrestador);
+app.get('/servicos', async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT s.*, u.nome_completo AS "nomePrestador" 
+       FROM servicos s 
+       JOIN usuarios u ON s.prestador_id = u.id`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
 });
 
-app.get('/servicos/:prestadorId', (req, res) => {
-    const { prestadorId } = req.params;
-    res.json(servicos.filter(s => s.prestadorId === parseInt(prestadorId)));
+app.get('/servicos/:prestadorId', async (req, res) => {
+  try {
+    const result = await db.query('SELECT * FROM servicos WHERE prestador_id = $1', [parseInt(req.params.prestadorId)]);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
 });
 
-app.delete('/servicos/:id', (req, res) => {
-    servicos = servicos.filter(s => s.id !== parseInt(req.params.id));
+app.delete('/servicos/:id', async (req, res) => {
+  try {
+    await db.query('DELETE FROM servicos WHERE id = $1', [parseInt(req.params.id)]);
     res.json({ mensagem: "Serviço removido!" });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
 });
 
 // RF04 - Agenda do Prestador
-app.post('/agenda', (req, res) => {
+app.post('/agenda', async (req, res) => {
+  try {
     const { prestadorId, dia, horaInicio, horaFim } = req.body;
-    let agendaPrestador = agendas.find(a => a.prestadorId === parseInt(prestadorId));
-
-    if (!agendaPrestador) {
-        agendaPrestador = { prestadorId: parseInt(prestadorId), horariosPorDia: [] };
-        agendas.push(agendaPrestador);
-    }
-
-    agendaPrestador.horariosPorDia = agendaPrestador.horariosPorDia.filter(h => h.dia !== dia);
-    agendaPrestador.horariosPorDia.push({ dia, horaInicio, horaFim });
-
-    res.status(201).json({ mensagem: `Horário de ${dia} configurado!`, agenda: agendaPrestador });
+    const result = await db.query(
+      `INSERT INTO agendas (prestador_id, dia_semana, hora_inicio, hora_fim)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (prestador_id, dia_semana) 
+       DO UPDATE SET hora_inicio = EXCLUDED.hora_inicio, hora_fim = EXCLUDED.hora_fim
+       RETURNING *`,
+      [parseInt(prestadorId), dia, horaInicio, horaFim]
+    );
+    res.status(201).json({ mensagem: `Horário de ${dia} configurado!`, agenda: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
 });
 
-app.delete('/agenda/:prestadorId/:dia', (req, res) => {
-    const { prestadorId, dia } = req.params;
-    const agendaPrestador = agendas.find(a => a.prestadorId === parseInt(prestadorId));
-    if (agendaPrestador) {
-        agendaPrestador.horariosPorDia = agendaPrestador.horariosPorDia.filter(h => h.dia !== dia);
-    }
-    res.json({ mensagem: `Horário de ${dia} removido!` });
+app.delete('/agenda/:prestadorId/:dia', async (req, res) => {
+  try {
+    await db.query('DELETE FROM agendas WHERE prestador_id = $1 AND dia_semana = $2', [parseInt(req.params.prestadorId), req.params.dia]);
+    res.json({ mensagem: `Horário de ${req.params.dia} removido!` });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
 });
 
-app.get('/agenda/:prestadorId', (req, res) => {
-    const agendaPrestador = agendas.find(a => a.prestadorId === parseInt(req.params.prestadorId));
-    res.json(agendaPrestador || { prestadorId: parseInt(req.params.prestadorId), horariosPorDia: [] });
+app.get('/agenda/:prestadorId', async (req, res) => {
+  try {
+    const result = await db.query('SELECT * FROM agendas WHERE prestador_id = $1', [parseInt(req.params.prestadorId)]);
+    res.json({ prestadorId: parseInt(req.params.prestadorId), horariosPorDia: result.rows });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
 });
 
-// RF05 - Criar Agendamento e Listar por Cliente
-app.post('/agendamentos', (req, res) => {
+// RF05 - Solicitacão de Agendamentos
+app.post('/agendamentos', async (req, res) => {
+  try {
     const { clienteId, servicoId, prestadorId, data, hora } = req.body;
-    const cliente = usuarios.find(u => u.id === parseInt(clienteId));
-    const servico = servicos.find(s => s.id === parseInt(servicoId));
-    const prestador = usuarios.find(u => u.id === parseInt(prestadorId));
-
-    if (!servico || !cliente) return res.status(400).json({ mensagem: "Dados inválidos." });
-
-    const novoAgendamento = {
-        id: agendamentos.length + 1,
-        clienteId: parseInt(clienteId),
-        nomeCliente: cliente.nome_completo,
-        servicoId: parseInt(servicoId),
-        tituloServico: servico.titulo,
-        precoServico: servico.preco,
-        prestadorId: parseInt(prestadorId),
-        nomePrestador: prestador ? prestador.nome_completo : 'Prestador',
-        data,
-        hora,
-        status: 'Pendente'
-    };
-
-    agendamentos.push(novoAgendamento);
-    res.status(201).json({ mensagem: "Agendamento solicitado com sucesso!", agendamento: novoAgendamento });
+    const result = await db.query(
+      `INSERT INTO agendamentos (cliente_id, prestador_id, servico_id, data_agendamento, hora_agendamento)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [parseInt(clienteId), parseInt(prestadorId), parseInt(servicoId), data, hora]
+    );
+    res.status(201).json({ mensagem: "Agendamento solicitado com sucesso!", agendamento: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
 });
 
-app.get('/agendamentos/cliente/:clienteId', (req, res) => {
-    res.json(agendamentos.filter(a => a.clienteId === parseInt(req.params.clienteId)));
+app.get('/agendamentos/cliente/:clienteId', async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT a.*, s.titulo AS "tituloServico", s.preco AS "precoServico", u.nome_completo AS "nomePrestador"
+       FROM agendamentos a
+       JOIN servicos s ON a.servico_id = s.id
+       JOIN usuarios u ON a.prestador_id = u.id
+       WHERE a.cliente_id = $1`,
+      [parseInt(req.params.clienteId)]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
 });
 
 // RF06 - Gerenciamento de Agendamentos pelo Prestador
-app.get('/agendamentos/prestador/:prestadorId', (req, res) => {
-    res.json(agendamentos.filter(a => a.prestadorId === parseInt(req.params.prestadorId)));
+app.get('/agendamentos/prestador/:prestadorId', async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT a.*, s.titulo AS "tituloServico", s.preco AS "precoServico", u.nome_completo AS "nomeCliente"
+       FROM agendamentos a
+       JOIN servicos s ON a.servico_id = s.id
+       JOIN usuarios u ON a.cliente_id = u.id
+       WHERE a.prestador_id = $1`,
+      [parseInt(req.params.prestadorId)]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
 });
 
-app.patch('/agendamentos/:id/status', (req, res) => {
+app.patch('/agendamentos/:id/status', async (req, res) => {
+  try {
     const id = parseInt(req.params.id);
     const { status } = req.body;
 
-    const agendamento = agendamentos.find(a => a.id === id);
+    const result = await db.query(
+      'UPDATE agendamentos SET status = $1::status_agendamento_enum WHERE id = $2 RETURNING *',
+      [status, id]
+    );
 
-    if (!agendamento) {
-        return res.status(404).json({ mensagem: "Agendamento não encontrado." });
-    }
+    if (result.rows.length === 0) return res.status(404).json({ mensagem: "Agendamento não encontrado." });
 
-    agendamento.status = status;
-    res.json({ mensagem: `Agendamento ${status.toLowerCase()} com sucesso!`, agendamento });
+    res.json({ mensagem: `Agendamento ${status.toLowerCase()} com sucesso!`, agendamento: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
 });
 
-// RF08 - Consulta de Distância entre Cliente e Prestador no Agendamento
-app.get('/agendamentos/:id/distancia', (req, res) => {
+// RF08 - Consulta de Distância (Haversine via SQL Joins)
+app.get('/agendamentos/:id/distancia', async (req, res) => {
+  try {
     const id = parseInt(req.params.id);
-    const agendamento = agendamentos.find(a => a.id === id);
-    if (!agendamento) return res.status(404).json({ mensagem: "Agendamento não encontrado." });
+    const result = await db.query(
+      `SELECT a.id, 
+              c.rua AS cliente_rua, c.numero AS cliente_num, c.bairro AS cliente_bairro, c.cidade AS cliente_cidade, c.latitude AS cliente_lat, c.longitude AS cliente_lng,
+              p.rua AS prestador_rua, p.numero AS prestador_num, p.bairro AS prestador_bairro, p.cidade AS prestador_cidade, p.latitude AS prestador_lat, p.longitude AS prestador_lng
+       FROM agendamentos a
+       JOIN usuarios c ON a.cliente_id = c.id
+       JOIN usuarios p ON a.prestador_id = p.id
+       WHERE a.id = $1`,
+      [id]
+    );
 
-    const cliente = usuarios.find(u => u.id === agendamento.clienteId);
-    const prestador = usuarios.find(u => u.id === agendamento.prestadorId);
+    if (result.rows.length === 0) return res.status(404).json({ mensagem: "Agendamento não encontrado." });
 
-    if (!cliente?.endereco?.lat || !prestador?.endereco?.lat) {
-        return res.status(400).json({ mensagem: "Endereço ou coordenadas de lat/lng do cliente ou prestador ausentes." });
+    const row = result.rows[0];
+    if (!row.cliente_lat || !row.prestador_lat) {
+      return res.status(400).json({ mensagem: "Coordenadas lat/lng ausentes para cliente ou prestador." });
     }
 
     const distanciaKm = calcularDistanciaKm(
-        cliente.endereco.lat, cliente.endereco.lng,
-        prestador.endereco.lat, prestador.endereco.lng
+      parseFloat(row.cliente_lat), parseFloat(row.cliente_lng),
+      parseFloat(row.prestador_lat), parseFloat(row.prestador_lng)
     );
 
     res.json({
-        agendamentoId: id,
-        origem: cliente.endereco,
-        destino: prestador.endereco,
-        distanciaKm: `${distanciaKm} km`,
-        linkGoogleMaps: `https://www.google.com/maps/dir/?api=1&origin=${cliente.endereco.lat},${cliente.endereco.lng}&destination=${prestador.endereco.lat},${prestador.endereco.lng}`
+      agendamentoId: id,
+      origem: { rua: row.cliente_rua, numero: row.cliente_num, bairro: row.cliente_bairro, cidade: row.cliente_cidade },
+      destino: { rua: row.prestador_rua, numero: row.prestador_num, bairro: row.prestador_bairro, cidade: row.prestador_cidade },
+      distanciaKm: `${distanciaKm} km`,
+      linkGoogleMaps: `https://www.google.com/maps/dir/?api=1&origin=${row.cliente_lat},${row.cliente_lng}&destination=${row.prestador_lat},${row.prestador_lng}`
     });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
 });
 
-app.listen(8000, () => console.log('Servidor rodando na porta 8000'));
+app.listen(8000, () => console.log('Servidor rodando na porta 8000 conectado ao PostgreSQL!'));
