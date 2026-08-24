@@ -224,6 +224,33 @@ app.get('/agendamentos/prestador/:prestadorId', async (req, res) => {
   }
 });
 
+app.get('/agendamentos/prestador/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const queryText = `
+      SELECT 
+        a.id,
+        a.data_agendamento AS data,
+        a.hora_agendamento AS hora,
+        a.status,
+        u.nome_completo AS "clienteNome",
+        s.titulo AS "servicoTitulo"
+      FROM agendamentos a
+      JOIN usuarios u ON a.cliente_id = u.id
+      JOIN servicos s ON a.servico_id = s.id
+      WHERE a.prestador_id = $1
+      ORDER BY a.criado_em DESC
+    `;
+    const result = await db.query(queryText, [id]);
+    
+    // Retorna os dados encontrados ou um array vazio
+    res.json(result.rows || []);
+  } catch (err) {
+    console.error("Erro na rota agendamentos/prestador:", err);
+    res.status(500).json({ erro: err.message });
+  }
+});
+
 app.patch('/agendamentos/:id/status', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
