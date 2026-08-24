@@ -177,17 +177,31 @@ app.get('/agenda/:prestadorId', async (req, res) => {
   }
 });
 
-// RF05 - Solicitação de Agendamentos
+// RF05 - Solicitação de Agendamentos (Tratado contra NaN)
 app.post('/agendamentos', async (req, res) => {
   try {
     const { clienteId, servicoId, prestadorId, data, hora } = req.body;
+
+    const cId = parseInt(clienteId, 10);
+    const sId = parseInt(servicoId, 10);
+    const pId = parseInt(prestadorId, 10);
+
+    // Evita o erro 500 no PostgreSQL validando se algum ID falhou
+    if (isNaN(cId) || isNaN(sId) || isNaN(pId)) {
+      return res.status(400).json({ 
+        erro: `Dados inválidos no payload JSON: clienteId=${clienteId}, servicoId=${servicoId}, prestadorId=${prestadorId}` 
+      });
+    }
+
     const result = await db.query(
       `INSERT INTO agendamentos (cliente_id, prestador_id, servico_id, data_agendamento, hora_agendamento)
        VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [parseInt(clienteId, 10), parseInt(prestadorId, 10), parseInt(servicoId, 10), data, hora]
+      [cId, pId, sId, data, hora]
     );
+
     res.status(201).json({ mensagem: "Agendamento solicitado com sucesso!", agendamento: result.rows[0] });
   } catch (err) {
+    console.error("Erro no POST /agendamentos:", err.message);
     res.status(500).json({ erro: err.message });
   }
 });
