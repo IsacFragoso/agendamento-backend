@@ -11,10 +11,35 @@ let servicos = [];
 let agendas = []; 
 let agendamentos = [];
 
+// Função auxiliar RF08: Cálculo de distância usando a Fórmula de Haversine
+function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+    const R = 6371; // Raio da Terra em km
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return parseFloat((R * c).toFixed(2));
+}
+
 // RF01 - Cadastro
 app.post('/usuarios', (req, res) => {
     const { nome_completo, email, telefone, senha, tipo_conta } = req.body;
-    const novoUsuario = { id: usuarios.length + 1, nome_completo, email, telefone, senha, tipo_conta };
+    const novoUsuario = { 
+        id: usuarios.length + 1, 
+        nome_completo, 
+        email, 
+        telefone, 
+        senha, 
+        tipo_conta,
+        fotoPerfil: null,
+        documentoIdentidade: null,
+        statusIdentidade: 'Pendente',
+        endereco: null
+    };
     usuarios.push(novoUsuario);
     res.status(201).json({ mensagem: "Usuário cadastrado com sucesso!", usuario: novoUsuario });
 });
@@ -34,12 +59,42 @@ app.post('/login', (req, res) => {
             id: usuarioEncontrado.id,
             nome_completo: usuarioEncontrado.nome_completo,
             email: usuarioEncontrado.email,
-            tipo_conta: usuarioEncontrado.tipo_conta
+            tipo_conta: usuarioEncontrado.tipo_conta,
+            fotoPerfil: usuarioEncontrado.fotoPerfil,
+            statusIdentidade: usuarioEncontrado.statusIdentidade,
+            endereco: usuarioEncontrado.endereco
         }
     });
 });
 
 app.get('/usuarios', (req, res) => res.json(usuarios));
+
+// RF07 - Validação de Identidade, Foto de Perfil e Endereço
+app.patch('/usuarios/:id/identidade', (req, res) => {
+    const id = parseInt(req.params.id);
+    const { fotoPerfil, documentoIdentidade, rua, numero, bairro, cidade, lat, lng } = req.body;
+
+    const usuario = usuarios.find(u => u.id === id);
+    if (!usuario) return res.status(404).json({ mensagem: "Usuário não encontrado." });
+
+    if (fotoPerfil) usuario.fotoPerfil = fotoPerfil;
+    if (documentoIdentidade) {
+        usuario.documentoIdentidade = documentoIdentidade;
+        usuario.statusIdentidade = 'Verificado';
+    }
+    if (rua || lat) {
+        usuario.endereco = { 
+            rua: rua || '', 
+            numero: numero || '', 
+            bairro: bairro || '', 
+            cidade: cidade || '', 
+            lat: lat ? parseFloat(lat) : null, 
+            lng: lng ? parseFloat(lng) : null 
+        };
+    }
+
+    res.json({ mensagem: "Perfil e endereço atualizados com sucesso!", usuario });
+});
 
 // RF03 - Portfólio
 app.post('/servicos', (req, res) => {
@@ -128,19 +183,16 @@ app.get('/agendamentos/cliente/:clienteId', (req, res) => {
     res.json(agendamentos.filter(a => a.clienteId === parseInt(req.params.clienteId)));
 });
 
-// --- RF06: GERENCIAMENTO DE AGENDAMENTOS PELO PRESTADOR ---
-
-// Listar solicitações recebidas pelo prestador
+// RF06 - Gerenciamento de Agendamentos pelo Prestador
 app.get('/agendamentos/prestador/:prestadorId', (req, res) => {
     res.json(agendamentos.filter(a => a.prestadorId === parseInt(req.params.prestadorId)));
 });
 
-// Alterar status do agendamento (Confirmado / Cancelado)
 app.patch('/agendamentos/:id/status', (req, res) => {
-    const { id } = req.params;
-    const { status } = req.body; // Expects 'Confirmado' or 'Cancelado'
+    const id = parseInt(req.params.id);
+    const { status } = req.body;
 
-    const agendamento = agendamentos.find(a => a.id === parseInt(id));
+    const agendamento = agendamentos.find(a => a.id === id);
 
     if (!agendamento) {
         return res.status(404).json({ mensagem: "Agendamento não encontrado." });
@@ -148,6 +200,33 @@ app.patch('/agendamentos/:id/status', (req, res) => {
 
     agendamento.status = status;
     res.json({ mensagem: `Agendamento ${status.toLowerCase()} com sucesso!`, agendamento });
+});
+
+// RF08 - Consulta de Distância entre Cliente e Prestador no Agendamento
+app.get('/agendamentos/:id/distancia', (req, res) => {
+    const id = parseInt(req.params.id);
+    const agendamento = agendamentos.find(a => a.id === id);
+    if (!agendamento) return res.status(404).json({ mensagem: "Agendamento não encontrado." });
+
+    const cliente = usuarios.find(u => u.id === agendamento.clienteId);
+    const prestador = usuarios.find(u => u.id === agendamento.prestadorId);
+
+    if (!cliente?.endereco?.lat || !prestador?.endereco?.lat) {
+        return res.status(400).json({ mensagem: "Endereço ou coordenadas de lat/lng do cliente ou prestador ausentes." });
+    }
+
+    const distanciaKm = calcularDistanciaKm(
+        cliente.endereco.lat, cliente.endereco.lng,
+        prestador.endereco.lat, prestador.endereco.lng
+    );
+
+    res.json({
+        agendamentoId: id,
+        origem: cliente.endereco,
+        destino: prestador.endereco,
+        distanciaKm: `${distanciaKm} km`,
+        linkGoogleMaps: `https://www.google.com/maps/dir/?api=1&origin=${cliente.endereco.lat},${cliente.endereco.lng}&destination=${prestador.endereco.lat},${prestador.endereco.lng}`
+    });
 });
 
 app.listen(8000, () => console.log('Servidor rodando na porta 8000'));
