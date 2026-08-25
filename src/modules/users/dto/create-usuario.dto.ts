@@ -1,0 +1,25 @@
+import { IsDateString, IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
+
+export class CreateUsuarioDto {
+  @IsString()
+  @MinLength(2)
+  nome_completo: string;
+
+  @IsEmail()
+  email: string;
+
+  @IsOptional()
+  @IsString()
+  telefone?: string;
+
+  @IsOptional()
+  @IsDateString()
+  data_nascimento?: string;
+
+  @IsIn(['CLIENTE', 'PRESTADOR'])
+  tipo_conta: string;
+
+  @IsString()
+  @MinLength(8)
+  senha: string;
+}
