@@ -14,7 +14,12 @@ describe('Users API', () => {
   it('creates users through public registration', async () => {
     await request(context.app.getHttpServer())
       .post('/usuarios')
-      .send({ nome_completo: 'Client', email: 'client@example.com', tipo_conta: 'CLIENTE', senha: 'password' })
+      .send({
+        nome_completo: 'Client',
+        email: 'client@example.com',
+        tipo_conta: 'CLIENTE',
+        senha: 'password',
+      })
       .expect(201);
     expect(context.usersService.create).toHaveBeenCalled();
   });

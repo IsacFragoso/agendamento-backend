@@ -1,4 +1,10 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcryptjs from 'bcryptjs';
 import { randomUUID } from 'crypto';
@@ -36,7 +42,9 @@ export class UsersService {
     const saved = await this.usuariosRepository.save(usuario);
 
     if (dto.tipo_conta === 'PRESTADOR') {
-      await this.perfisRepository.save(this.perfisRepository.create({ id_prestador: saved.id_usuario }));
+      await this.perfisRepository.save(
+        this.perfisRepository.create({ id_prestador: saved.id_usuario }),
+      );
     }
 
     return this.withoutPassword(saved);
@@ -60,7 +68,9 @@ export class UsersService {
     const query = this.usuariosRepository
       .createQueryBuilder('usuario')
       .innerJoinAndSelect('usuario.perfil_prestador', 'perfil')
-      .leftJoinAndSelect('perfil.servicos', 'servico', 'servico.ativo = :serviceActive', { serviceActive: true })
+      .leftJoinAndSelect('perfil.servicos', 'servico', 'servico.ativo = :serviceActive', {
+        serviceActive: true,
+      })
       .leftJoinAndSelect('servico.categoria', 'categoria')
       .where('usuario.ativo = :userActive', { userActive: true })
       .andWhere('usuario.tipo_conta = :providerType', { providerType: 'PRESTADOR' });
@@ -144,7 +154,9 @@ export class UsersService {
     const usuario = await this.findEntity(id);
     Object.assign(usuario, {
       ...dto,
-      data_nascimento: dto.data_nascimento ? new Date(dto.data_nascimento) : usuario.data_nascimento,
+      data_nascimento: dto.data_nascimento
+        ? new Date(dto.data_nascimento)
+        : usuario.data_nascimento,
     });
     return this.withoutPassword(await this.usuariosRepository.save(usuario));
   }
@@ -189,7 +201,12 @@ export class UsersService {
     });
   }
 
-  async upsertProfile(id: number, dto: UpsertPerfilPrestadorDto, requesterId: number, requesterType: string) {
+  async upsertProfile(
+    id: number,
+    dto: UpsertPerfilPrestadorDto,
+    requesterId: number,
+    requesterType: string,
+  ) {
     if (requesterType !== 'ADMIN' && id !== requesterId) {
       throw new ForbiddenException('Você só pode alterar o próprio perfil');
     }
@@ -210,7 +227,9 @@ export class UsersService {
   }
 
   private withoutPassword(usuario: Usuario) {
-    const { senha_hash, ...safeUser } = usuario;
+    const safeUser = Object.fromEntries(
+      Object.entries(usuario).filter(([key]) => key !== 'senha_hash'),
+    ) as Partial<Usuario>;
     return safeUser;
   }
 }

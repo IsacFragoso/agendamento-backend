@@ -1,4 +1,9 @@
-import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Categoria } from './entities/categoria.entity';
@@ -8,7 +13,6 @@ import { CreateServicoDto } from './dto/create-servico.dto';
 import { UpdateServicoDto } from './dto/update-servico.dto';
 import { UpdateCategoriaDto } from './dto/update-categoria.dto';
 import { PerfilPrestador } from '../users/entities/perfil-prestador.entity';
-import { Usuario } from '../users/entities/usuario.entity';
 
 @Injectable()
 export class ServicesService {
@@ -34,7 +38,8 @@ export class ServicesService {
   async updateCategory(id: number, dto: UpdateCategoriaDto) {
     const category = await this.requireCategory(id);
     const duplicate = await this.categoriasRepository.findOne({ where: { nome: dto.nome } });
-    if (duplicate && duplicate.id_categoria !== id) throw new ConflictException('Categoria já cadastrada');
+    if (duplicate && duplicate.id_categoria !== id)
+      throw new ConflictException('Categoria já cadastrada');
     category.nome = dto.nome;
     return this.categoriasRepository.save(category);
   }
@@ -62,7 +67,10 @@ export class ServicesService {
   }
 
   findByProvider(id_prestador: number) {
-    return this.servicosRepository.find({ where: { id_prestador }, relations: { categoria: true } });
+    return this.servicosRepository.find({
+      where: { id_prestador },
+      relations: { categoria: true },
+    });
   }
 
   async update(id: number, dto: UpdateServicoDto, requesterId: number, requesterType: string) {
@@ -90,7 +98,9 @@ export class ServicesService {
 
   private requireProvider(type: string) {
     if (type !== 'PRESTADOR' && type !== 'ADMIN') {
-      throw new ForbiddenException('Apenas prestadores ou administradores podem gerenciar serviços');
+      throw new ForbiddenException(
+        'Apenas prestadores ou administradores podem gerenciar serviços',
+      );
     }
   }
 

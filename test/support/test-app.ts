@@ -1,4 +1,4 @@
-import { INestApplication, UnauthorizedException } from '@nestjs/common';
+import { UnauthorizedException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AppointmentsController } from '../../src/modules/appointments/appointments.controller';
 import { AppointmentsService } from '../../src/modules/appointments/appointments.service';
@@ -63,7 +63,8 @@ export async function createTestApp() {
       {
         provide: AdminGuard,
         useValue: {
-          canActivate: (context: any) => context.switchToHttp().getRequest().user?.tipo_conta === 'ADMIN',
+          canActivate: (context: any) =>
+            context.switchToHttp().getRequest().user?.tipo_conta === 'ADMIN',
         },
       },
     ],

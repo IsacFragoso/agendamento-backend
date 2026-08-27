@@ -1,4 +1,14 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Put, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Put,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/strategies/jwt-auth.guard';
 import { UpdateHorarioDto } from './dto/update-horario.dto';
@@ -15,7 +25,11 @@ export class SchedulesController {
 
   @Put()
   @UseGuards(JwtAuthGuard)
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateHorarioDto, @Req() request: Request) {
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateHorarioDto,
+    @Req() request: Request,
+  ) {
     const user = request.user as { sub: number; tipo_conta: string };
     return this.schedulesService.update(id, dto, user.sub, user.tipo_conta);
   }

@@ -1,4 +1,9 @@
-import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateAgendamentoDto } from './dto/create-agendamento.dto';
@@ -117,10 +122,17 @@ export class AppointmentsService {
     return this.agendamentosRepository.save(appointment);
   }
 
-  async createReview(id_agendamento: number, dto: CreateAvaliacaoDto, requesterId: number, requesterType: string) {
-    if (requesterType !== 'ADMIN' && requesterType !== 'CLIENTE') throw new ForbiddenException('Apenas clientes podem avaliar');
+  async createReview(
+    id_agendamento: number,
+    dto: CreateAvaliacaoDto,
+    requesterId: number,
+    requesterType: string,
+  ) {
+    if (requesterType !== 'ADMIN' && requesterType !== 'CLIENTE')
+      throw new ForbiddenException('Apenas clientes podem avaliar');
     const appointment = await this.requireAppointment(id_agendamento);
-    if (requesterType !== 'ADMIN' && appointment.id_cliente !== requesterId) throw new ForbiddenException('Você só pode avaliar seus agendamentos');
+    if (requesterType !== 'ADMIN' && appointment.id_cliente !== requesterId)
+      throw new ForbiddenException('Você só pode avaliar seus agendamentos');
     const existing = await this.avaliacoesRepository.findOne({ where: { id_agendamento } });
     if (existing) throw new ConflictException('Este agendamento já foi avaliado');
     return this.avaliacoesRepository.save(
@@ -136,7 +148,12 @@ export class AppointmentsService {
     return review;
   }
 
-  async updateReview(id_agendamento: number, dto: UpdateAvaliacaoDto, requesterId: number, requesterType: string) {
+  async updateReview(
+    id_agendamento: number,
+    dto: UpdateAvaliacaoDto,
+    requesterId: number,
+    requesterType: string,
+  ) {
     const review = await this.findReview(id_agendamento, requesterId, requesterType);
     Object.assign(review, dto);
     return this.avaliacoesRepository.save(review);
@@ -149,13 +166,18 @@ export class AppointmentsService {
   }
 
   private async requireAppointment(id: number) {
-    const appointment = await this.agendamentosRepository.findOne({ where: { id_agendamento: id } });
+    const appointment = await this.agendamentosRepository.findOne({
+      where: { id_agendamento: id },
+    });
     if (!appointment) throw new NotFoundException('Agendamento não encontrado');
     return appointment;
   }
 
   private requireReviewOwner(appointment: Agendamento, requesterId: number, requesterType: string) {
-    if (requesterType !== 'ADMIN' && (requesterType !== 'CLIENTE' || appointment.id_cliente !== requesterId)) {
+    if (
+      requesterType !== 'ADMIN' &&
+      (requesterType !== 'CLIENTE' || appointment.id_cliente !== requesterId)
+    ) {
       throw new ForbiddenException('Apenas o cliente do agendamento pode gerenciar a avaliação');
     }
   }

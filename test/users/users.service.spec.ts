@@ -47,7 +47,9 @@ describe('UsersService', () => {
         ],
       },
     ]);
-    expect(query.andWhere).toHaveBeenCalledWith('usuario.nome_completo ILIKE :name', { name: '%Ana%' });
+    expect(query.andWhere).toHaveBeenCalledWith('usuario.nome_completo ILIKE :name', {
+      name: '%Ana%',
+    });
     expect(query.select).toHaveBeenCalled();
   });
 

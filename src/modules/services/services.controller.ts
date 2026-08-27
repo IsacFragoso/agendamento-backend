@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/strategies/jwt-auth.guard';
 import { AdminGuard } from '../auth/strategies/admin.guard';
@@ -54,7 +65,11 @@ export class ServicesController {
 
   @Patch('servicos/:id')
   @UseGuards(JwtAuthGuard)
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateServicoDto, @Req() request: Request) {
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateServicoDto,
+    @Req() request: Request,
+  ) {
     const user = request.user as { sub: number; tipo_conta: string };
     return this.servicesService.update(id, dto, user.sub, user.tipo_conta);
   }

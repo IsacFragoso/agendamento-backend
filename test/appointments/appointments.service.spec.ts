@@ -13,7 +13,9 @@ describe('AppointmentsService', () => {
     reviews: { findOne: jest.fn(), create: jest.fn((value) => value), save: jest.fn() },
     users: { findOne: jest.fn().mockResolvedValue({ id_usuario: 7 }) },
     profiles: { findOne: jest.fn().mockResolvedValue({ id_prestador: 12 }) },
-    services: { findOne: jest.fn().mockResolvedValue({ id_servico: 3, id_prestador: 12, ativo: true }) },
+    services: {
+      findOne: jest.fn().mockResolvedValue({ id_servico: 3, id_prestador: 12, ativo: true }),
+    },
   });
 
   it('allows a client to list only their appointments', async () => {
@@ -45,9 +47,9 @@ describe('AppointmentsService', () => {
       mocks.services as any,
     );
 
-    await expect(
-      service.create({ id_servico: 3 } as any, 12, 'PRESTADOR'),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.create({ id_servico: 3 } as any, 12, 'PRESTADOR')).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 
   it('rejects a provider changing another provider appointment status', async () => {

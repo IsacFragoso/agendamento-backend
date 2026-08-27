@@ -22,7 +22,12 @@ export class SchedulesService {
     };
   }
 
-  async update(id_prestador: number, dto: UpdateHorarioDto, requesterId: number, requesterType: string) {
+  async update(
+    id_prestador: number,
+    dto: UpdateHorarioDto,
+    requesterId: number,
+    requesterType: string,
+  ) {
     this.requireProvider(id_prestador, requesterId, requesterType);
     const perfil = await this.perfisRepository.findOne({ where: { id_prestador } });
     if (!perfil) throw new NotFoundException('Perfil de prestador não encontrado');

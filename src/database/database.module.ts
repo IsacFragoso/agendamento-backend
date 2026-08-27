@@ -23,10 +23,7 @@ import { Avaliacao } from '@modules/appointments/entities/avaliacao.entity';
         migrations: [__dirname + '/migrations/*.{js,ts}'],
         synchronize: false,
         logging: configService.get('NODE_ENV') !== 'production',
-        ssl:
-          configService.get('DB_HOST') !== 'localhost'
-            ? { rejectUnauthorized: false }
-            : false,
+        ssl: configService.get('DB_HOST') !== 'localhost' ? { rejectUnauthorized: false } : false,
       }),
       inject: [ConfigService],
     }),

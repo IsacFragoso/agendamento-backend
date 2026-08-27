@@ -1,4 +1,16 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Put,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { Request } from 'express';
 import { AdminGuard } from '../auth/strategies/admin.guard';
 import { JwtAuthGuard } from '../auth/strategies/jwt-auth.guard';
@@ -31,7 +43,11 @@ export class UsersController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateUsuarioDto, @Req() request: Request) {
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateUsuarioDto,
+    @Req() request: Request,
+  ) {
     const user = request.user as { sub: number; tipo_conta: string };
     return this.usersService.update(id, dto, user.sub, user.tipo_conta);
   }
@@ -45,7 +61,11 @@ export class UsersController {
 
   @Put(':id/perfil-prestador')
   @UseGuards(JwtAuthGuard)
-  upsertProfile(@Param('id', ParseIntPipe) id: number, @Body() dto: UpsertPerfilPrestadorDto, @Req() request: Request) {
+  upsertProfile(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpsertPerfilPrestadorDto,
+    @Req() request: Request,
+  ) {
     const user = request.user as { sub: number; tipo_conta: string };
     return this.usersService.upsertProfile(id, dto, user.sub, user.tipo_conta);
   }

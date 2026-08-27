@@ -4,6 +4,7 @@ import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Usuario } from '../users/entities/usuario.entity';
+import { RevokedToken } from './entities/revoked-token.entity';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -12,7 +13,7 @@ import { AdminGuard } from './strategies/admin.guard';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Usuario]),
+    TypeOrmModule.forFeature([Usuario, RevokedToken]),
     PassportModule,
     JwtModule.registerAsync({
       inject: [ConfigService],

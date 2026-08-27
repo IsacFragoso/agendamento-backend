@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/strategies/jwt-auth.guard';
 import { AppointmentsService } from './appointments.service';
@@ -34,14 +45,22 @@ export class AppointmentsController {
 
   @Patch(':id/status')
   @UseGuards(JwtAuthGuard)
-  updateStatus(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateStatusDto, @Req() request: Request) {
+  updateStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateStatusDto,
+    @Req() request: Request,
+  ) {
     const user = request.user as { sub: number; tipo_conta: string };
     return this.appointmentsService.updateStatus(id, dto, user.sub, user.tipo_conta);
   }
 
   @Post(':id/avaliacao')
   @UseGuards(JwtAuthGuard)
-  createReview(@Param('id', ParseIntPipe) id: number, @Body() dto: CreateAvaliacaoDto, @Req() request: Request) {
+  createReview(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CreateAvaliacaoDto,
+    @Req() request: Request,
+  ) {
     const user = request.user as { sub: number; tipo_conta: string };
     return this.appointmentsService.createReview(id, dto, user.sub, user.tipo_conta);
   }
@@ -55,7 +74,11 @@ export class AppointmentsController {
 
   @Patch(':id/avaliacao')
   @UseGuards(JwtAuthGuard)
-  updateReview(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateAvaliacaoDto, @Req() request: Request) {
+  updateReview(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateAvaliacaoDto,
+    @Req() request: Request,
+  ) {
     const user = request.user as { sub: number; tipo_conta: string };
     return this.appointmentsService.updateReview(id, dto, user.sub, user.tipo_conta);
   }

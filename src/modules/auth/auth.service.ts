@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { Usuario } from '../users/entities/usuario.entity';
 import { LoginDto } from './dto/login.dto';
+import { RevokedToken } from './entities/revoked-token.entity';
 
 @Injectable()
 export class AuthService {
@@ -12,6 +13,8 @@ export class AuthService {
     @InjectRepository(Usuario)
     private readonly usuariosRepository: Repository<Usuario>,
     private readonly jwtService: JwtService,
+    @InjectRepository(RevokedToken)
+    private readonly revokedTokensRepository: Repository<RevokedToken>,
   ) {}
 
   async login(dto: LoginDto) {
@@ -36,5 +39,20 @@ export class AuthService {
         ativo: usuario.ativo,
       },
     };
+  }
+
+  async logout(token: string | undefined, payload: { sub: number; exp?: number }) {
+    if (!token) return { ok: false };
+    const expiresAt = payload?.exp
+      ? new Date(payload.exp * 1000)
+      : new Date(Date.now() + 3600 * 1000);
+    const revoked = this.revokedTokensRepository.create({ token, expires_at: expiresAt });
+    await this.revokedTokensRepository.save(revoked);
+    return { ok: true };
+  }
+
+  async isRevoked(token: string) {
+    const found = await this.revokedTokensRepository.findOne({ where: { token } });
+    return !!found;
   }
 }
