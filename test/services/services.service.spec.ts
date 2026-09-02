@@ -35,9 +35,18 @@ describe('ServicesService', () => {
       servicesRepository as any,
       profilesRepository as any,
     );
-    const dto = { id_prestador: 12, id_categoria: 3, titulo: 'Serviço admin' };
+    const dto = {
+      id_prestador: 12,
+      id_categoria: 3,
+      titulo: 'Serviço admin',
+      descricao: 'Descrição',
+      preco: 99.9,
+      duracao_padrao: 60,
+    };
 
-    await expect(service.create(dto as any, 1, 'ADMIN')).resolves.toEqual(dto);
+    await expect(service.create(dto as any, 1, 'ADMIN')).resolves.toEqual(
+      expect.objectContaining(dto),
+    );
     expect(profilesRepository.findOne).toHaveBeenCalledWith({ where: { id_prestador: 12 } });
   });
 });

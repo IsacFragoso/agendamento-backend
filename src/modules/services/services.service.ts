@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -54,12 +55,31 @@ export class ServicesService {
 
   async create(dto: CreateServicoDto, requesterId: number, requesterType: string) {
     this.requireProvider(requesterType);
-    if (requesterType !== 'ADMIN' && dto.id_prestador !== requesterId) {
+    const ownerId = requesterType === 'ADMIN' ? dto.id_prestador : requesterId;
+
+    if (ownerId !== requesterId && requesterType !== 'ADMIN') {
       throw new ForbiddenException('Você só pode criar serviços para o próprio perfil');
     }
-    await this.requireProfile(dto.id_prestador);
-    await this.requireCategory(dto.id_categoria);
-    return this.servicosRepository.save(this.servicosRepository.create(dto));
+
+    const profile = await this.requireProfile(ownerId);
+    const category = await this.requireCategory(dto.id_categoria);
+    const servico = this.servicosRepository.create({
+      titulo: dto.titulo,
+      descricao: dto.descricao ?? null,
+      preco: Number(dto.preco),
+      duracao_padrao: Number(dto.duracao_padrao),
+      ativo: dto.ativo ?? true,
+      id_prestador: ownerId,
+      id_categoria: dto.id_categoria,
+      prestador: profile,
+      categoria: category,
+    });
+
+    try {
+      return await this.servicosRepository.save(servico);
+    } catch (error) {
+      throw new BadRequestException('Não foi possível cadastrar o serviço');
+    }
   }
 
   findAll() {
@@ -78,7 +98,12 @@ export class ServicesService {
     const servico = await this.requireService(id);
     if (requesterType !== 'ADMIN') this.requireOwnership(servico.id_prestador, requesterId);
     if (dto.id_categoria) await this.requireCategory(dto.id_categoria);
-    Object.assign(servico, dto);
+    Object.assign(servico, {
+      ...dto,
+      preco: dto.preco !== undefined ? Number(dto.preco) : servico.preco,
+      duracao_padrao:
+        dto.duracao_padrao !== undefined ? Number(dto.duracao_padrao) : servico.duracao_padrao,
+    });
     return this.servicosRepository.save(servico);
   }
 

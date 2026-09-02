@@ -1,3 +1,4 @@
+import { Type } from 'class-transformer';
 import { IsBoolean, IsInt, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
 
 export class UpdateServicoDto {
@@ -21,10 +22,12 @@ export class UpdateServicoDto {
   duracao_padrao?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsBoolean()
   ativo?: boolean;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   id_categoria?: number;

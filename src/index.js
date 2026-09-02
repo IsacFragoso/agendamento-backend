@@ -1,8 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const db = require('./database/db'); // Importa a conexão configurada no seu db.js
-
+const db = require('./database/db'); //
 const app = express();
 const PORT = process.env.PORT || 8000;
 
@@ -10,7 +9,7 @@ const PORT = process.env.PORT || 8000;
 app.use(cors());
 app.use(express.json());
 
-// Inicialização automática das tabelas no banco de dados
+
 const inicializarBanco = async () => {
   try {
     await db.query(`
