@@ -15,6 +15,7 @@ import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 import { UpsertPerfilPrestadorDto } from './dto/upsert-perfil-prestador.dto';
 import { SearchPrestadoresDto } from './dto/search-prestadores.dto';
+import { isValidPhoneNumber, sanitizePhoneNumber } from '../../common/utils/phone.util';
 
 @Injectable()
 export class UsersService {
@@ -31,10 +32,12 @@ export class UsersService {
       throw new ConflictException('E-mail já cadastrado');
     }
 
+    const telefone = this.normalizePhoneOrThrow(dto.telefone);
+
     const usuario = this.usuariosRepository.create({
       nome_completo: dto.nome_completo,
       email: dto.email,
-      telefone: dto.telefone ?? null,
+      telefone,
       data_nascimento: dto.data_nascimento ? new Date(dto.data_nascimento) : null,
       tipo_conta: dto.tipo_conta,
       senha_hash: await bcryptjs.hash(dto.senha, 10),
@@ -152,8 +155,11 @@ export class UsersService {
       throw new ForbiddenException('Você só pode alterar a própria conta');
     }
     const usuario = await this.findEntity(id);
+    const telefone = dto.telefone === undefined ? usuario.telefone : this.normalizePhoneOrThrow(dto.telefone);
+
     Object.assign(usuario, {
       ...dto,
+      telefone,
       data_nascimento: dto.data_nascimento
         ? new Date(dto.data_nascimento)
         : usuario.data_nascimento,
@@ -231,5 +237,19 @@ export class UsersService {
       Object.entries(usuario).filter(([key]) => key !== 'senha_hash'),
     ) as Partial<Usuario>;
     return safeUser;
+  }
+
+  private normalizePhoneOrThrow(value: string | undefined | null) {
+    const telefone = sanitizePhoneNumber(value);
+
+    if (telefone === null) {
+      return null;
+    }
+
+    if (!isValidPhoneNumber(telefone)) {
+      throw new BadRequestException('Telefone deve conter 11 dígitos');
+    }
+
+    return telefone;
   }
 }

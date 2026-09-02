@@ -73,6 +73,86 @@ describe('UsersService', () => {
     await expect(service.remove(10, 11, 'CLIENTE')).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('sanitizes masked phone numbers on user creation', async () => {
+    const savedUser = {
+      id_usuario: 7,
+      nome_completo: 'Client',
+      email: 'client@example.com',
+      telefone: '11999998888',
+      tipo_conta: 'CLIENTE',
+      senha_hash: 'hash',
+      ativo: true,
+    };
+    const usuarioRepository = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockImplementation((value) => value),
+      save: jest.fn().mockResolvedValue(savedUser),
+    };
+    const perfilRepository = { save: jest.fn(), create: jest.fn() };
+    const service = new UsersService(usuarioRepository as any, perfilRepository as any);
+
+    await service.create({
+      nome_completo: 'Client',
+      email: 'client@example.com',
+      telefone: '(11) 99999 - 8888',
+      tipo_conta: 'CLIENTE',
+      senha: 'password123',
+    });
+
+    expect(usuarioRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ telefone: '11999998888' }),
+    );
+  });
+
+  it('rejects invalid phone numbers on user creation', async () => {
+    const usuarioRepository = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn(),
+      save: jest.fn(),
+    };
+    const service = new UsersService(usuarioRepository as any, {} as any);
+
+    await expect(
+      service.create({
+        nome_completo: 'Client',
+        email: 'client@example.com',
+        telefone: '1199999',
+        tipo_conta: 'CLIENTE',
+        senha: 'password123',
+      }),
+    ).rejects.toThrow('Telefone deve conter 11 dígitos');
+  });
+
+  it('sanitizes masked phone numbers on user update', async () => {
+    const usuario = {
+      id_usuario: 7,
+      nome_completo: 'Client',
+      email: 'client@example.com',
+      telefone: '11911112222',
+      data_nascimento: null,
+      tipo_conta: 'CLIENTE',
+      senha_hash: 'hash',
+      ativo: true,
+    };
+    const usuarioRepository = {
+      findOne: jest.fn().mockResolvedValue(usuario),
+      save: jest.fn().mockImplementation(async (value) => value),
+    };
+    const service = new UsersService(usuarioRepository as any, {} as any);
+
+    const result = await service.update(
+      7,
+      { telefone: '(11) 98888 - 7777' },
+      7,
+      'CLIENTE',
+    );
+
+    expect(usuarioRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ telefone: '11988887777' }),
+    );
+    expect(result).toEqual(expect.objectContaining({ telefone: '11988887777' }));
+  });
+
   it('anonymizes the user and deactivates provider services', async () => {
     const usuario = {
       id_usuario: 10,
