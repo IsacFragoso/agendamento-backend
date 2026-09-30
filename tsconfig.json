@@ -7,11 +7,11 @@
     "outDir": "./dist",
     "rootDir": ".",
     "paths": {
-      "@common/*": ["src/common/*"],
-      "@config/*": ["src/config/*"],
-      "@database/*": ["src/database/*"],
-      "@modules/*": ["src/modules/*"],
-      "@app/*": ["src/app/*"]
+      "@common/*": ["./src/common/*"],
+      "@config/*": ["./src/config/*"],
+      "@database/*": ["./src/database/*"],
+      "@modules/*": ["./src/modules/*"],
+      "@app/*": ["./src/app/*"]
     },
     "strict": true,
     "strictPropertyInitialization": false,

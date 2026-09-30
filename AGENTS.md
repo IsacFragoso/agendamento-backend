@@ -32,11 +32,10 @@ Verify against `package.json`; these are the expected names.
 | Dev server | `npm run start:dev` |
 | Build | `npm run build` |
 | Lint | `npm run lint` |
-| Unit tests | `npm test` |
-| E2E tests | `npm run test:e2e` |
-| Generate migration | `TODO: e.g. npm run migration:generate -- src/migrations/<Name>` |
-| Run migrations | `TODO: e.g. npm run migration:run` |
-| Revert last migration | `TODO: e.g. npm run migration:revert` |
+| Tests | `npm.cmd run test:api` |
+| Generate migration | No generation script is configured; add and review a migration under `src/database/migrations/` manually |
+| Run migrations | `npm.cmd run migration:run` |
+| Revert last migration | `npm.cmd run migration:revert` |
 
 Before finishing, run lint, build and the relevant tests.
 
@@ -53,7 +52,7 @@ The database is **PostgreSQL hosted on Neon** (there is no local PostgreSQL or D
 | `DB_NAME` | Database name |
 | `DB_SSL` | `true` (Neon requires SSL) |
 | `JWT_SECRET` | Secret used to sign tokens; must be a long random value, never the example text |
-| `JWT_EXPIRATION` | Token lifetime (`3600`; `TODO: confirm unit, seconds`) |
+| `JWT_EXPIRATION` | JWT lifetime in seconds (`3600` by default) |
 
 - The team currently shares one Neon database for development. Treat it as shared data: never run migrations, seeds, resets, or destructive tests against it without explicit authorization.
 - There is currently no dedicated test database configured. Unit tests should use mocks, and API tests must not silently connect to the shared Neon database. Create a separate Neon branch or database before adding tests that require real persistence.
@@ -91,29 +90,29 @@ The database is **PostgreSQL hosted on Neon** (there is no local PostgreSQL or D
 ## Auth and token revocation
 
 - Revocation is stored in **PostgreSQL**. Extend the existing revocation table and service when changing this behavior.
-- `RedisService` exists but is intentionally **not registered or wired**. Do not import it, register it in a module, or add Redis as a dependency of any feature unless the task explicitly asks for it. `TODO: state the reason (decision vs. planned migration).`
-- Protect routes with the existing guards/decorators. `TODO: name them and the role model.`
-- Token lifetime and refresh policy: `TODO`.
+- `RedisService` exists but is intentionally **not registered or wired**. Revoked tokens are stored in PostgreSQL, so Redis is not part of the current authentication path. Do not import it, register it in a module, or add Redis as a dependency of any feature unless the task explicitly asks for it.
+- Protect routes with `JwtAuthGuard` and, where required, `AdminGuard`; ownership and provider/client rules are enforced in the relevant service. Account roles are `CLIENTE`, `PRESTADOR`, and `ADMIN`.
+- JWT lifetime is controlled by `JWT_EXPIRATION` in seconds, with a default of `3600`. Refresh tokens are not implemented.
 - Never return password hashes from any endpoint.
 
 ## Input and errors
 
 - Treat all input (body, query, params, headers) as untrusted. Frontend validation is for UX; backend validation is the real one.
 - Return response DTOs, not raw entities, unless there is an explicit decision to expose the entity.
-- Errors must be safe for the consumer: no stack traces or internal details in responses. Use Nest exception filters/HTTP exceptions rather than ad-hoc responses. `TODO: document the current error body shape (e.g. { statusCode, message, errors }) and keep it stable.`
+- Errors must be safe for the consumer: no stack traces or internal details in responses. Use Nest HTTP exceptions rather than ad-hoc responses. No custom exception filter is registered; Nest's default error shape is used, typically `{ statusCode, message, error }`, with `message` either a string or validation-error array.
 - Do not swallow unexpected errors; log them with enough context and no sensitive data. Use distinct statuses for validation (`400`), unauthenticated (`401`), forbidden (`403`), not found (`404`), conflict (`409`) and internal failures.
 
 ### Authorization scope and queries
 
 - Authorize the resource and the operation, not just the presence of a valid token.
-- Apply the visibility scope (the current user's own appointments, or the tenant/organization if there is one) in the base query **before** any client-supplied filter, so a filter can never widen access. `TODO: state the ownership/role model.`
+- Apply the visibility scope in the service: clients see their own appointments, providers see appointments assigned to them, and administrators can see all appointments. Users may read or change their own account data; provider and service management is ownership-scoped, except for administrators.
 - Any client-controlled filter, sort field or search column must go through a whitelist. Never build SQL identifiers from input; always use bound parameters.
-- List endpoints that accept pagination or sorting params keep the existing param names and cap the page size. `TODO: document the current contract if there is one.`
+- The current API has no general pagination or client-controlled sorting contract. Appointment lists are ordered by `data_hora_inicio`; provider search accepts whitelisted name, category, service, coordinates, and radius filters.
 
 ## Testing
 
 - Behavioral changes need tests in the same change.
-- Unit tests with Jest next to the code (`*.spec.ts`); HTTP-level tests with Supertest under `TODO: test/`. Cover failure paths (validation errors, unauthorized, conflict), not just the happy path.
+- Unit and API tests use Jest; service tests and Supertest API tests are under `test/`, organized by module. Cover failure paths (validation errors, unauthorized, conflict), not just the happy path.
 - Changes to booking, auth or migrations must include a test for the invariant they touch.
 - For any new or changed endpoint, cover: authentication and authorization (including access to another user's data), status code and error body, input validation, and the write use case itself. For booking, add a conflict case.
 - Tests must not depend on the development database, the internet or real external services.
@@ -123,10 +122,10 @@ The database is **PostgreSQL hosted on Neon** (there is no local PostgreSQL or D
 
 These are the bugs that cost the most. Do not weaken them.
 
-- **Time zones:** `TODO: confirm.` Assumed policy: timestamps are stored in UTC (`timestamptz`) and converted to the user's zone (`America/Sao_Paulo` by default) only at the display edge. Never build dates from local-time strings on the server.
-- **No double booking:** overlap prevention is enforced at the database level (transaction with locking, or a unique/exclusion constraint), not only by check-then-insert in application code. `TODO: describe the current mechanism.`
-- **Cancellation and rescheduling:** `TODO: rules, e.g. minimum notice, who may cancel, status transitions.`
-- **Availability rules** (working hours, slot length, buffers): `TODO`.
+- **Time zones:** User and provider lifecycle timestamps use `timestamptz`, but the current appointment migration/entity still uses PostgreSQL `timestamp` without time zone. The API accepts ISO date strings; a single UTC storage/display policy still needs to be decided before expanding booking automation.
+- **No double booking:** the service performs an application-level overlap query and returns `409` when it finds a conflict. There is currently no database exclusion constraint, locking transaction, or equivalent final database guard.
+- **Cancellation and rescheduling:** the provider or administrator can set an appointment status to `PENDENTE`, `CONFIRMADO`, `CANCELADO`, or `CONCLUIDO`. Transition restrictions, cancellation notice, and rescheduling rules are not currently defined in code.
+- **Availability rules:** weekly provider intervals are stored in `horarios`; service duration comes from `duracao_padrao`. There is no blocked-period/holiday model, slot-generation endpoint, buffer policy, or database-enforced availability rule yet.
 
 ## Git and safety
 
@@ -135,7 +134,7 @@ These are the bugs that cost the most. Do not weaken them.
 - The development database is a hosted Neon database that may be shared with teammates. Never run migrations, seeds, resets or destructive scripts against it without explicit authorization in the current turn, and never against a production database.
 - Never publish, deploy or change infrastructure.
 - Never commit `.env` files or secrets. Never log tokens, passwords or PII.
-- Commit message convention (if asked to write one): `TODO: e.g. Conventional Commits — feat:, fix:, refactor:, test:, docs:, chore:`.
+- Commit message convention (if asked to write one): use focused prefixes such as `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, and `chore:`.
 
 ## Workflow
 
@@ -148,4 +147,4 @@ These are the bugs that cost the most. Do not weaken them.
 
 - Keep changes focused. No drive-by refactors, formatting sweeps or dependency bumps.
 - Do not add dependencies without a stated reason in the summary.
-- Language: `TODO: e.g. code identifiers and commit messages in English; user-facing strings in Brazilian Portuguese.` Keep API field names consistent with the existing ones.
+- Language: use English for code identifiers and commit messages; current user-facing API messages are primarily Brazilian Portuguese. Keep API field names consistent with the existing Portuguese names.

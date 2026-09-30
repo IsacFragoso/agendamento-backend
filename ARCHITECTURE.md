@@ -1,6 +1,6 @@
 # Backend architecture
 
-REST API for the appointment-booking system (school project). The frontend is a separate repository, `TODO: GitHub URL of agendamento-frontend`: a React 19 + Vite SPA that calls this API with `fetch` and a JWT in the `Authorization: Bearer` header.
+REST API for the appointment-booking system (school project). The frontend is a separate repository, https://github.com/IsacFragoso/agendamento-frontend: a React 19 + Vite SPA that calls this API with `fetch` and a JWT in the `Authorization: Bearer` header.
 
 ```text
 Browser (React SPA)  ──JSON over HTTP──▶  NestJS API (/api)  ──TypeORM──▶  PostgreSQL
@@ -17,11 +17,13 @@ agendamento-backend/
 ├── src/
 │   ├── main.ts                 # bootstrap: global prefix /api, ValidationPipe
 │   ├── app.module.ts           # root module, TypeORM connection
-│   ├── TODO: auth/             # login, JWT strategy, guard, revocation
-│   ├── TODO: users/
-│   ├── TODO: appointments/     # reference module for new features
-│   ├── TODO: common/           # shared guards, decorators, filters, if any
-│   └── migrations/             # TypeORM migrations
+│   ├── modules/auth/            # login, JWT strategy, guards, revocation
+│   ├── modules/users/           # users and provider profiles
+│   ├── modules/appointments/    # bookings and reviews
+│   ├── modules/services/        # services and categories
+│   ├── modules/schedules/       # provider weekly schedules
+│   ├── common/                  # shared utilities and storage integration
+│   └── database/migrations/     # TypeORM migrations
 ├── test/                       # Supertest e2e tests
 └── package.json
 ```
@@ -72,17 +74,17 @@ Extra rules:
 ## 4. Authentication and token revocation
 
 ```text
-Login:   POST /api/TODO → find user → bcryptjs.compare → sign JWT → return token
+Login:   POST /api/auth/login → find user → bcryptjs.compare → sign JWT → return token
 Request: Authorization: Bearer <JWT> → JwtStrategy validates signature/expiry
                                      → check the token is not in the revocation table
                                      → attach user to the request
-Logout:  POST /api/TODO → store the token (or its id/jti) in the revocation table
+Logout:  POST /api/auth/logout → store the token in the revocation table
 ```
 
-- Revocation lives in **PostgreSQL**. `TODO: table name, what is stored (whole token, hash or jti), and whether expired rows are cleaned up.`
+- Revocation lives in **PostgreSQL**, in `revoked_tokens`. The table stores the whole token and its expiration timestamp. An index exists on `expires_at`, but the current code does not clean up expired rows automatically.
 - `RedisService` exists but is not registered in any module and must not be used unless a task says so.
-- Token lifetime: `TODO`. Refresh tokens: `TODO: yes/no`.
-- Roles / permissions: `TODO: e.g. client vs professional/admin, and which guard checks it.`
+- Token lifetime: `JWT_EXPIRATION` seconds, defaulting to `3600` in the JWT module. Refresh tokens are not implemented.
+- Roles / permissions: `CLIENTE`, `PRESTADOR`, and `ADMIN` are carried in the JWT and refreshed from the database during JWT validation. `JwtAuthGuard` protects authenticated routes and `AdminGuard` restricts administrator-only routes. Ownership checks remain in the relevant service.
 - A user may only read and change their own appointments unless their role says otherwise. This check is applied in the service query, not only in the controller.
 
 ## 5. Errors
@@ -102,32 +104,32 @@ Nest's exception filter produces the response; keep the default shape unless the
 | `409` | Conflict, for example the slot is already booked |
 | `500` | Unexpected failure; no internal details in the body |
 
-Throw Nest's built-in exceptions (`BadRequestException`, `ConflictException`, ...) from services. Do not build error responses by hand in controllers. `TODO: mention any custom exception filter.`
+Throw Nest's built-in exceptions (`BadRequestException`, `ConflictException`, ...) from services. Do not build error responses by hand in controllers. No custom exception filter is registered; Nest's default exception handling is used.
 
 ## 6. Persistence and migrations
 
-- PostgreSQL is hosted on **Neon** (SSL required). The connection is configured in `TODO: app.module.ts / data-source file` from environment variables (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_SSL`; see `.env.example`).
-- Because the database is remote, running a migration changes a real database that teammates may share. `TODO: state whether each developer has their own Neon database/branch.`
+- PostgreSQL is hosted on **Neon** (SSL required). The application connection is configured in `src/database/database.module.ts`, and the migration datasource is configured in `src/database/data-source.ts`, using environment variables (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_SSL`; see `.env.example`).
+- The team currently shares one Neon database for development. Running a migration changes shared data and requires explicit authorization. No separate Neon branch or test database is currently configured.
 - Schema changes go through migrations only; `synchronize` stays off.
 - Workflow: change the entity → generate a migration → **read it** → run it → commit both. Never edit a migration that was already merged.
-- Commands: `TODO: generate / run / revert`.
+- Commands: `npm.cmd run build`, then `npm.cmd run migration:run` or `npm.cmd run migration:revert`. The scripts use the compiled datasource at `dist/src/database/data-source.js`.
 
 ## 7. Transactions and booking concurrency
 
 - The service owns the transaction of a use case (`DataSource.transaction(...)` or a `QueryRunner`).
-- Two requests for the same slot at the same time must result in one booking and one `409`. Enforced by: `TODO: unique constraint / exclusion constraint / row lock inside a transaction`.
-- A check-then-insert in application code alone is **not** enough; the database has to be the final guard.
+- The service currently checks for overlapping non-cancelled appointments before inserting, and returns `409` when it finds one. There is no database exclusion constraint, unique constraint, or locking transaction enforcing this invariant yet.
+- A check-then-insert in application code alone is **not** enough for concurrent requests; database-level overlap protection remains a known limitation before unattended self-service booking is enabled.
 
 ## 8. Tests
 
 - **Unit:** Jest, `*.spec.ts` next to the code. Test services with mocked repositories.
-- **E2E:** Supertest in `test/`. `TODO: real test database or not, and how it is set up.`
+- **API tests:** Supertest and Jest in `test/`. The current test app overrides guards and injects mocked services; it does not connect to PostgreSQL. There is no dedicated persistence test database.
 - Cover for each endpoint: authentication, access to another user's data, invalid input, and the main success path. For booking, cover the conflict case.
 - Tests never use the development database.
 
 ## 9. Adding a feature (checklist)
 
-1. Create `<feature>/` by copying the structure of the reference module (`TODO: appointments`).
+1. Create `src/modules/<feature>/` by following the existing module structure, with `appointments/` as the closest reference for controller/service/entity organization.
 2. Entity → migration (generate, review, run).
 3. DTOs with validation decorators.
 4. Service with the business rules; controller with thin routes.
@@ -140,6 +142,6 @@ Throw Nest's built-in exceptions (`BadRequestException`, `ConflictException`, ..
 
 - No API versioning in URLs and no separate API "surfaces": one API under `/api`.
 - No Action classes, no generic repository layer.
-- No generated OpenAPI documentation. `TODO: confirm, or note if @nestjs/swagger is in use.`
+- No generated OpenAPI documentation; `@nestjs/swagger` is not a dependency.
 - No Redis in the running system.
-- No queues or background workers. `TODO: confirm.`
+- No queues or background workers are configured.
