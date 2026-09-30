@@ -4,18 +4,23 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcryptjs from 'bcryptjs';
-import { randomUUID } from 'crypto';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { PerfilPrestador } from './entities/perfil-prestador.entity';
 import { Usuario } from './entities/usuario.entity';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { BecomeProviderDto } from './dto/become-provider.dto';
 import { UpsertPerfilPrestadorDto } from './dto/upsert-perfil-prestador.dto';
 import { SearchPrestadoresDto } from './dto/search-prestadores.dto';
 import { isValidPhoneNumber, sanitizePhoneNumber } from '../../common/utils/phone.util';
+import { CloudinaryService, UploadedImageFile } from '../../common/storage/cloudinary.service';
+import { DistanceUtilService } from '../../common/utils/distance.util';
 
 @Injectable()
 export class UsersService {
@@ -24,6 +29,8 @@ export class UsersService {
     private readonly usuariosRepository: Repository<Usuario>,
     @InjectRepository(PerfilPrestador)
     private readonly perfisRepository: Repository<PerfilPrestador>,
+    @Optional() private readonly distanceUtil?: DistanceUtilService,
+    @Optional() private readonly cloudinaryService?: CloudinaryService,
   ) {}
 
   async create(dto: CreateUsuarioDto) {
@@ -33,29 +40,30 @@ export class UsersService {
     }
 
     const telefone = this.normalizePhoneOrThrow(dto.telefone);
+    const nomeCompleto =
+      dto.nome_completo?.trim() ||
+      dto.email
+        .split('@')[0]
+        .replace(/[._+-]+/g, ' ')
+        .trim() ||
+      'Cliente';
 
     const usuario = this.usuariosRepository.create({
-      nome_completo: dto.nome_completo,
+      nome_completo: nomeCompleto.length >= 2 ? nomeCompleto : 'Cliente',
       email: dto.email,
       telefone,
-      data_nascimento: dto.data_nascimento ? new Date(dto.data_nascimento) : null,
-      tipo_conta: dto.tipo_conta,
+      foto_perfil: dto.foto_perfil ?? null,
+      tipo_conta: 'CLIENTE',
       senha_hash: await bcryptjs.hash(dto.senha, 10),
     });
     const saved = await this.usuariosRepository.save(usuario);
-
-    if (dto.tipo_conta === 'PRESTADOR') {
-      await this.perfisRepository.save(
-        this.perfisRepository.create({ id_prestador: saved.id_usuario }),
-      );
-    }
 
     return this.withoutPassword(saved);
   }
 
   async findAll() {
     const usuarios = await this.usuariosRepository.find({
-      where: { ativo: true },
+      where: { deleted_at: IsNull() },
       relations: { perfil_prestador: true },
     });
     return usuarios.map((usuario) => this.withoutPassword(usuario));
@@ -75,7 +83,7 @@ export class UsersService {
         serviceActive: true,
       })
       .leftJoinAndSelect('servico.categoria', 'categoria')
-      .where('usuario.ativo = :userActive', { userActive: true })
+      .where('usuario.deleted_at IS NULL')
       .andWhere('usuario.tipo_conta = :providerType', { providerType: 'PRESTADOR' });
 
     if (dto.nome) {
@@ -99,11 +107,12 @@ export class UsersService {
       .select([
         'usuario.id_usuario',
         'usuario.nome_completo',
-        'perfil.id_prestador',
+        'usuario.foto_perfil',
+        'perfil.id_usuario',
         'perfil.latitude',
         'perfil.longitude',
-        'perfil.foto_perfil',
         'perfil.bio',
+        'perfil.imagem_banner',
         'servico.id_servico',
         'servico.titulo',
         'servico.descricao',
@@ -117,12 +126,20 @@ export class UsersService {
     return providers.map((provider) => ({
       id_prestador: provider.id_usuario,
       nome_completo: provider.nome_completo,
+      distancia_km:
+        hasLatitude && hasLongitude
+          ? this.distanceUtil?.calcularDistanciaKm(
+              dto.latitude!,
+              dto.longitude!,
+              Number(provider.perfil_prestador?.latitude),
+              Number(provider.perfil_prestador?.longitude),
+            )
+          : null,
       perfil: provider.perfil_prestador
         ? {
-            latitude: provider.perfil_prestador.latitude,
-            longitude: provider.perfil_prestador.longitude,
-            foto_perfil: provider.perfil_prestador.foto_perfil,
+            foto_perfil: provider.foto_perfil,
             bio: provider.perfil_prestador.bio,
+            imagem_banner: provider.perfil_prestador.imagem_banner,
           }
         : null,
       servicos: (provider.servicos ?? []).map((service) => ({
@@ -141,7 +158,7 @@ export class UsersService {
       throw new ForbiddenException('Você só pode consultar a própria conta');
     }
     const usuario = await this.usuariosRepository.findOne({
-      where: { id_usuario: id },
+      where: { id_usuario: id, deleted_at: IsNull() },
       relations: { perfil_prestador: true },
     });
     if (!usuario) {
@@ -155,16 +172,87 @@ export class UsersService {
       throw new ForbiddenException('Você só pode alterar a própria conta');
     }
     const usuario = await this.findEntity(id);
-    const telefone = dto.telefone === undefined ? usuario.telefone : this.normalizePhoneOrThrow(dto.telefone);
+    const telefone =
+      dto.telefone === undefined ? usuario.telefone : this.normalizePhoneOrThrow(dto.telefone);
 
     Object.assign(usuario, {
       ...dto,
       telefone,
-      data_nascimento: dto.data_nascimento
-        ? new Date(dto.data_nascimento)
-        : usuario.data_nascimento,
     });
     return this.withoutPassword(await this.usuariosRepository.save(usuario));
+  }
+
+  async changePassword(
+    id: number,
+    dto: ChangePasswordDto,
+    requesterId: number,
+    requesterType: string,
+  ) {
+    if (requesterType !== 'ADMIN' && id !== requesterId) {
+      throw new ForbiddenException('Você só pode alterar a própria senha');
+    }
+    if (dto.nova_senha !== dto.confirmar_senha) {
+      throw new BadRequestException('A confirmação da nova senha não confere');
+    }
+
+    const usuario = await this.findEntity(id);
+    const currentPasswordMatches = await bcryptjs.compare(dto.senha_atual, usuario.senha_hash);
+    if (!currentPasswordMatches) {
+      throw new UnauthorizedException('A senha atual está incorreta');
+    }
+    if (dto.senha_atual === dto.nova_senha) {
+      throw new BadRequestException('A nova senha deve ser diferente da senha atual');
+    }
+
+    usuario.senha_hash = await bcryptjs.hash(dto.nova_senha, 10);
+    await this.usuariosRepository.save(usuario);
+    return { message: 'Senha alterada com sucesso' };
+  }
+
+  async becomeProvider(
+    id: number,
+    dto: BecomeProviderDto,
+    requesterId: number,
+    requesterType: string,
+  ) {
+    if (requesterType !== 'ADMIN' && id !== requesterId) {
+      throw new ForbiddenException('Você só pode solicitar o próprio perfil de prestador');
+    }
+    if (requesterType !== 'ADMIN' && requesterType !== 'CLIENTE') {
+      throw new ForbiddenException('Apenas clientes podem iniciar este onboarding');
+    }
+
+    return this.usuariosRepository.manager.transaction(async (manager) => {
+      const usuarioRepository = manager.getRepository(Usuario);
+      const perfilRepository = manager.getRepository(PerfilPrestador);
+      const usuario = await usuarioRepository.findOne({
+        where: { id_usuario: id, deleted_at: IsNull() },
+      });
+
+      if (!usuario) throw new NotFoundException('Usuário não encontrado');
+      if (usuario.tipo_conta === 'PRESTADOR') {
+        throw new ConflictException('Este usuário já é prestador');
+      }
+      if (usuario.tipo_conta !== 'CLIENTE' && requesterType !== 'ADMIN') {
+        throw new ForbiddenException('Apenas clientes podem iniciar este onboarding');
+      }
+
+      const perfil = perfilRepository.create({
+        id_usuario: id,
+        bio: dto.bio,
+        latitude: dto.latitude ?? null,
+        longitude: dto.longitude ?? null,
+      });
+      await perfilRepository.save(perfil);
+
+      usuario.tipo_conta = 'PRESTADOR';
+      const savedUser = await usuarioRepository.save(usuario);
+
+      return {
+        usuario: this.withoutPassword(savedUser),
+        perfil_prestador: perfil,
+      };
+    });
   }
 
   async remove(id: number, requesterId: number, requesterType: string) {
@@ -174,37 +262,67 @@ export class UsersService {
 
     return this.usuariosRepository.manager.transaction(async (manager) => {
       const usuarioRepository = manager.getRepository(Usuario);
-      const perfilRepository = manager.getRepository(PerfilPrestador);
       const servicoRepository = manager.getRepository('servico');
       const usuario = await usuarioRepository.findOne({ where: { id_usuario: id } });
 
       if (!usuario) throw new NotFoundException('Usuário não encontrado');
-      if (!usuario.ativo) return { message: 'Usuário já foi anonimizado' };
+      if (usuario.deleted_at) return { message: 'Usuário já foi removido' };
 
-      usuario.nome_completo = 'Usuário removido';
-      usuario.email = `deleted-user-${usuario.id_usuario}-${randomUUID()}@example.invalid`;
-      usuario.telefone = null;
-      usuario.data_nascimento = null;
-      usuario.tipo_conta = 'REMOVIDO';
-      usuario.senha_hash = await bcryptjs.hash(randomUUID(), 10);
-      usuario.ativo = false;
+      usuario.deleted_at = new Date();
       await usuarioRepository.save(usuario);
 
-      const perfil = await perfilRepository.findOne({ where: { id_prestador: id } });
-      if (perfil) {
-        perfil.latitude = null;
-        perfil.longitude = null;
-        perfil.foto_perfil = null;
-        perfil.bio = null;
-        perfil.dias_atendimento = null;
-        perfil.horario_inicio = null;
-        perfil.horario_fim = null;
-        await perfilRepository.save(perfil);
-        await servicoRepository.update({ id_prestador: id }, { ativo: false });
-      }
+      await servicoRepository.update({ id_prestador: id }, { ativo: false });
 
       return { message: 'Dados pessoais removidos com sucesso' };
     });
+  }
+
+  async uploadProfilePhoto(
+    id: number,
+    file: UploadedImageFile,
+    requesterId: number,
+    requesterType: string,
+  ) {
+    if (requesterType !== 'ADMIN' && id !== requesterId) {
+      throw new ForbiddenException('Você só pode alterar a própria foto de perfil');
+    }
+
+    const cloudinaryService = this.cloudinaryService;
+    if (!cloudinaryService) {
+      throw new BadRequestException('Upload de imagens não está configurado');
+    }
+
+    const usuario = await this.findEntity(id);
+    const image = await cloudinaryService.uploadImage(file, `agendamento/users/${id}`);
+    usuario.foto_perfil = image.url;
+    return this.withoutPassword(await this.usuariosRepository.save(usuario));
+  }
+
+  async uploadProviderBanner(
+    id: number,
+    file: UploadedImageFile,
+    requesterId: number,
+    requesterType: string,
+  ) {
+    if (requesterType !== 'ADMIN' && (requesterType !== 'PRESTADOR' || id !== requesterId)) {
+      throw new ForbiddenException('Você só pode alterar o próprio banner profissional');
+    }
+
+    const cloudinaryService = this.cloudinaryService;
+    if (!cloudinaryService) {
+      throw new BadRequestException('Upload de imagens não está configurado');
+    }
+
+    const usuario = await this.findEntity(id);
+    if (usuario.tipo_conta !== 'PRESTADOR' && requesterType !== 'ADMIN') {
+      throw new ForbiddenException('Apenas prestadores podem alterar o banner profissional');
+    }
+    const perfil = await this.perfisRepository.findOne({ where: { id_usuario: id } });
+    if (!perfil) throw new NotFoundException('Perfil de prestador não encontrado');
+
+    const image = await cloudinaryService.uploadImage(file, `agendamento/providers/${id}`);
+    perfil.imagem_banner = image.url;
+    return this.perfisRepository.save(perfil);
   }
 
   async upsertProfile(
@@ -217,15 +335,17 @@ export class UsersService {
       throw new ForbiddenException('Você só pode alterar o próprio perfil');
     }
     await this.findEntity(id);
-    const perfil = await this.perfisRepository.findOne({ where: { id_prestador: id } });
+    const perfil = await this.perfisRepository.findOne({ where: { id_usuario: id } });
     const saved = await this.perfisRepository.save(
-      this.perfisRepository.create({ ...(perfil ?? {}), id_prestador: id, ...dto }),
+      this.perfisRepository.create({ ...(perfil ?? {}), id_usuario: id, ...dto }),
     );
     return saved;
   }
 
   private async findEntity(id: number) {
-    const usuario = await this.usuariosRepository.findOne({ where: { id_usuario: id } });
+    const usuario = await this.usuariosRepository.findOne({
+      where: { id_usuario: id, deleted_at: IsNull() },
+    });
     if (!usuario) {
       throw new NotFoundException('Usuário não encontrado');
     }

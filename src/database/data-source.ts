@@ -1,6 +1,5 @@
 import 'reflect-metadata';
 import { config } from 'dotenv';
-import { join } from 'path';
 import { DataSource } from 'typeorm';
 import { Usuario } from '../modules/users/entities/usuario.entity';
 import { PerfilPrestador } from '../modules/users/entities/perfil-prestador.entity';
@@ -9,8 +8,9 @@ import { Servico } from '../modules/services/entities/servico.entity';
 import { Agendamento } from '../modules/appointments/entities/agendamento.entity';
 import { Avaliacao } from '../modules/appointments/entities/avaliacao.entity';
 import { RevokedToken } from '../modules/auth/entities/revoked-token.entity';
+import { Horario } from '../modules/schedules/entities/horario.entity';
 
-config({ path: join(__dirname, '../../.env') });
+config();
 
 export default new DataSource({
   type: 'postgres',
@@ -23,6 +23,15 @@ export default new DataSource({
     process.env.DB_SSL === 'true' || process.env.DB_HOST !== 'localhost'
       ? { rejectUnauthorized: false }
       : false,
-  entities: [Usuario, PerfilPrestador, Categoria, Servico, Agendamento, Avaliacao, RevokedToken],
+  entities: [
+    Usuario,
+    PerfilPrestador,
+    Categoria,
+    Servico,
+    Agendamento,
+    Avaliacao,
+    RevokedToken,
+    Horario,
+  ],
   migrations: [__dirname + '/migrations/*.{js,ts}'],
 });

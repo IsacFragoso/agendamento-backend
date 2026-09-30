@@ -2,11 +2,12 @@ import { Column, Entity, JoinColumn, OneToMany, OneToOne, PrimaryColumn } from '
 import { Usuario } from './usuario.entity';
 import { Servico } from '../../services/entities/servico.entity';
 import { Agendamento } from '../../appointments/entities/agendamento.entity';
+import { Horario } from '../../schedules/entities/horario.entity';
 
 @Entity('perfil_prestador')
 export class PerfilPrestador {
-  @PrimaryColumn({ name: 'id_prestador' })
-  id_prestador: number;
+  @PrimaryColumn({ name: 'id_usuario' })
+  id_usuario: number;
 
   @Column({ type: 'decimal', precision: 10, scale: 8, nullable: true })
   latitude: number | null;
@@ -15,22 +16,13 @@ export class PerfilPrestador {
   longitude: number | null;
 
   @Column({ type: 'text', nullable: true })
-  foto_perfil: string | null;
-
-  @Column({ type: 'text', nullable: true })
   bio: string | null;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  dias_atendimento: string | null;
-
-  @Column({ type: 'time', nullable: true })
-  horario_inicio: string | null;
-
-  @Column({ type: 'time', nullable: true })
-  horario_fim: string | null;
+  @Column({ type: 'text', nullable: true })
+  imagem_banner: string | null;
 
   @OneToOne(() => Usuario, (usuario) => usuario.perfil_prestador, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'id_prestador', referencedColumnName: 'id_usuario' })
+  @JoinColumn({ name: 'id_usuario', referencedColumnName: 'id_usuario' })
   usuario: Usuario;
 
   @OneToMany(() => Servico, (servico) => servico.prestador)
@@ -38,4 +30,7 @@ export class PerfilPrestador {
 
   @OneToMany(() => Agendamento, (agendamento) => agendamento.prestador)
   agendamentos: Agendamento[];
+
+  @OneToMany(() => Horario, (horario) => horario.prestador)
+  horarios: Horario[];
 }

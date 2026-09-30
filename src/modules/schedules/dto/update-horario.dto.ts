@@ -1,6 +1,14 @@
-import { IsOptional, IsString, Matches } from 'class-validator';
+import { IsInt, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
 
 export class UpdateHorarioDto {
+  @IsOptional()
+  @IsString()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(6)
+  dia_semana?: number;
+
   @IsOptional()
   @IsString()
   dias_atendimento?: string;

@@ -6,13 +6,12 @@
     "declaration": true,
     "outDir": "./dist",
     "rootDir": ".",
-    "baseUrl": "./src",
     "paths": {
-      "@common/*": ["common/*"],
-      "@config/*": ["config/*"],
-      "@database/*": ["database/*"],
-      "@modules/*": ["modules/*"],
-      "@app/*": ["app/*"]
+      "@common/*": ["src/common/*"],
+      "@config/*": ["src/config/*"],
+      "@database/*": ["src/database/*"],
+      "@modules/*": ["src/modules/*"],
+      "@app/*": ["src/app/*"]
     },
     "strict": true,
     "strictPropertyInitialization": false,

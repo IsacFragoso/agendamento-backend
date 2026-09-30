@@ -20,6 +20,20 @@ describe('Services API', () => {
     expect(context.servicesService.create).toHaveBeenCalledWith(expect.anything(), 12, 'PRESTADOR');
   });
 
+  it('forwards provider service status changes', async () => {
+    context.setUser({ sub: 12, tipo_conta: 'PRESTADOR' });
+    await request(context.app.getHttpServer())
+      .patch('/servicos/3')
+      .send({ ativo: false })
+      .expect(200);
+    expect(context.servicesService.update).toHaveBeenCalledWith(
+      3,
+      { ativo: false },
+      12,
+      'PRESTADOR',
+    );
+  });
+
   it('restricts category management to administrators', async () => {
     await request(context.app.getHttpServer())
       .post('/categorias')

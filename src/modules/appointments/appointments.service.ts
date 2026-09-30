@@ -189,7 +189,7 @@ export class AppointmentsService {
   }
 
   private async requireProfile(id: number) {
-    const profile = await this.perfisRepository.findOne({ where: { id_prestador: id } });
+    const profile = await this.perfisRepository.findOne({ where: { id_usuario: id } });
     if (!profile) throw new NotFoundException('Prestador não encontrado');
     return profile;
   }

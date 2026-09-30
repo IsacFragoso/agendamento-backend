@@ -116,7 +116,7 @@ export class ServicesService {
   }
 
   private async requireProfile(id: number) {
-    const profile = await this.perfisRepository.findOne({ where: { id_prestador: id } });
+    const profile = await this.perfisRepository.findOne({ where: { id_usuario: id } });
     if (!profile) throw new NotFoundException('Perfil de prestador não encontrado');
     return profile;
   }

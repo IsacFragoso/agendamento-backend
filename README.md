@@ -1,262 +1,234 @@
 # API de Agendamento
 
-Backend REST para uma plataforma de agendamento de serviços entre clientes e prestadores.
+Este repositório contém a API REST de backend de um sistema acadêmico de agendamento. A API disponibiliza endpoints JSON para a aplicação e persiste os dados no PostgreSQL; o frontend é mantido separadamente.
 
-## Stack
+## Tecnologias
 
-- Node.js 18+
-- NestJS
-- TypeScript
-- TypeORM
-- PostgreSQL
-- JWT e Passport
-- Jest e Supertest
+- Node.js e TypeScript
+- NestJS 10 com o adaptador Express
+- PostgreSQL, TypeORM e `pg`
+- Autenticação Passport JWT; hash de senhas com `bcryptjs`
+- Validação de DTOs com `class-validator` e `class-transformer`
+- Jest, `ts-jest` e Supertest
 
-## Estrutura
+## Pré-requisitos
+
+- Node.js 18+ (informado no README existente; `package.json` não declara um campo `engines`)
+- npm
+- PostgreSQL local ou hospedado
+- O funcionamento da aplicação não exige Docker. TODO: documentar uma configuração com Docker caso ela seja desejada; não há arquivo Docker Compose no repositório.
+
+## Primeiros passos
+
+1. Clone este repositório:
+
+   ```powershell
+   https://github.com/IsacFragoso/agendamento-backend
+   ```
+
+2. Instale as dependências a partir da raiz do repositório:
+
+   ```powershell
+   npm install
+   ```
+
+3. Copie `.env.example` para `.env` na raiz do repositório e configure os valores do seu ambiente. Não versione o arquivo `.env`.
+
+   | Variável | Descrição |
+   | --- | --- |
+   | `NODE_ENV` | Ambiente de execução (`development`, `production` ou `test`). |
+   | `PORT` | Porta HTTP; o modelo usa `8000`. |
+   | `DB_HOST` | Host do PostgreSQL. |
+   | `DB_PORT` | Porta do PostgreSQL; o modelo usa `5432`. |
+   | `DB_USER` | Usuário do PostgreSQL. |
+   | `DB_PASSWORD` | Senha do PostgreSQL. |
+   | `DB_NAME` | Nome do banco de dados PostgreSQL. |
+   | `DB_SSL` | Configuração SSL usada pela fonte de dados das migrations do TypeORM. |
+   | `JWT_SECRET` | Segredo usado para assinar JWTs. Configure um valor privado localmente. |
+   | `JWT_EXPIRATION` | Duração do JWT em segundos; o modelo usa `3600`. |
+
+4. Configure o banco de dados. O projeto usa PostgreSQL hospedado no [Neon](https://neon.tech); não é necessário instalar o PostgreSQL localmente.
+   - Peça a um colega acesso ao banco Neon do projeto ou crie seu próprio projeto gratuito no Neon e copie os dados de conexão.
+   - Informe os dados no `.env` (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`) e mantenha `DB_SSL=true`.
+5. Execute as migrations do banco:
+
+   ```powershell
+   npm.cmd run migration:run
+   ```
+
+6. Inicie o servidor de desenvolvimento:
+
+   ```powershell
+   npm.cmd run start:dev
+   ```
+
+7. A API usa o prefixo global `/api` e, por padrão, fica disponível em `http://localhost:8000/api` (a porta pode ser configurada com `PORT`).
+
+## Scripts disponíveis
+
+- `npm run build` — compila o backend.
+- `npm run format` — formata os arquivos TypeScript de código-fonte e de testes com Prettier.
+- `npm run start` — inicia o NestJS.
+- `npm run start:dev` — inicia o NestJS em modo de observação de alterações.
+- `npm run start:debug` — inicia o NestJS em modo de depuração e observação de alterações.
+- `npm run start:prod` — executa a aplicação compilada em `dist/main`.
+- `npm run test:api` — executa os testes Jest usando `test/jest.config.js`.
+- `npm run lint` — executa o ESLint com correções automáticas nos arquivos TypeScript correspondentes.
+- `npm run migration:run` — compila o projeto e executa as migrations pendentes do TypeORM.
+- `npm run migration:revert` — compila o projeto e reverte a migration mais recente do TypeORM.
+
+## Execução dos testes
+
+Execute `npm run test:api` para rodar os testes unitários (`*.spec.ts`) e os testes HTTP/e2e (`*.e2e-spec.ts`). Não há scripts separados para unitários e e2e em `package.json`. Os testes usam serviços e repositórios simulados e não precisam de banco de dados; não os aponte para um banco de desenvolvimento.
+
+## Estrutura do projeto
 
 ```text
 src/
-├── app/                 # Módulo principal e health check
-├── config/              # Configuração e validação do ambiente
-├── database/            # TypeORM, data source e migrations
-└── modules/
-    ├── auth/            # Login, JWT e guards
-    ├── users/           # Usuários e perfis de prestador
-    ├── services/        # Categorias e serviços
-    ├── schedules/       # Disponibilidade dos prestadores
-    └── appointments/    # Agendamentos e avaliações
-
-test/
-├── support/             # Fábrica compartilhada dos testes
-├── users/
-├── services/
-├── schedules/
-└── appointments/
+├── app/        # Módulo principal da aplicação, controller e service
+├── common/     # Decorators, DTOs, guards, filters, middleware e utilitários compartilhados
+├── config/     # Configuração e validação do ambiente
+├── database/   # Configuração do TypeORM, fonte de dados, migrations e seeds
+├── modules/    # Funcionalidades de autenticação, usuários, serviços, agendas e agendamentos
+├── types/      # Declarações TypeScript compartilhadas
+└── main.ts     # Inicialização da aplicação; configura /api e validação
 ```
 
-## Modelo de dados
+## Documentação
 
-As migrations criam estas tabelas:
+- [Arquitetura](ARCHITECTURE.md)
+- [Orientações para agentes e colaboradores](AGENTS.md)
 
-- `usuario`: dados comuns, credenciais, tipo de conta e status ativo
-- `perfil_prestador`: localização, biografia, foto e disponibilidade
-- `categoria`: categorias de serviços
-- `servico`: serviços oferecidos por prestadores
-- `agendamento`: cliente, prestador, serviço, período e status
-- `avaliacao`: nota e comentário de um agendamento
+## Repositório relacionado
 
-## Configuração
+Frontend: <https://github.com/IsacFragoso/agendamento-frontend>. O frontend fica em um repositório separado e precisa desta API em execução para utilizar as funcionalidades de backend.
 
-Crie um arquivo `.env` na raiz do backend. Não versione esse arquivo.
+## Fluxo de trabalho da equipe
 
-```env
-NODE_ENV=development
-PORT=8000
+Para uma equipe de duas pessoas, mantenham `main` estável e usem branches de curta duração para cada tarefa (por exemplo, `feat/<tarefa>`, `fix/<tarefa>` ou `docs/<tarefa>`). Façam commits pequenos e focados; prefixos como `feat:`, `fix:` e `docs:` ajudam a indicar o propósito.
 
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=sua_senha
-DB_NAME=agendamento
-DB_SSL=false
+Abra um pull request para `main` para cada alteração e peça ao outro integrante da equipe para revisá-lo antes do merge. A revisão deve verificar o comportamento, os testes e qualquer impacto na API ou nas migrations. Antes do merge, execute `npm run lint`, `npm run build` e `npm run test:api` na raiz deste repositório. Mantenham o processo simples: uma equipe de duas pessoas não precisa de uma branch extra de release nem de um processo formal de aprovação.
 
-JWT_SECRET=uma_chave_longa_e_secreta
-JWT_EXPIRATION=3600
-```
+## Autoria e curso
 
-Para Neon ou outro PostgreSQL hospedado, use os valores fornecidos pelo provedor e `DB_SSL=true`.
+- Autores: Isaac Santos Fragoso e Jean Komuro dos Santos.
+- Curso: Tecnologia em Sistemas para Internet.
 
-## Instalação
+---
 
-```powershell
-cd agendamento-backend
-npm install
-```
+# Appointment Booking API
 
-Como este projeto usa Neon, não é necessário criar um banco manualmente. O banco já existe no projeto Neon; apenas configure `DB_HOST`, `DB_USER`, `DB_PASSWORD` e `DB_NAME` no `.env`.
+This repository contains the backend REST API for a school appointment-booking system. It provides JSON endpoints for the application and persists data in PostgreSQL; the frontend is maintained separately.
 
-## Banco de dados
+## Tech Stack
 
-Execute as migrations com:
+- Node.js and TypeScript
+- NestJS 10 with the Express adapter
+- PostgreSQL, TypeORM, and `pg`
+- Passport JWT authentication; `bcryptjs` password hashing
+- DTO validation with `class-validator` and `class-transformer`
+- Jest, `ts-jest`, and Supertest
 
-```powershell
-npm.cmd run migration:run
-```
+## Prerequisites
 
-O histórico das migrations é armazenado na tabela `migrations`. A migration inicial cria o schema do diagrama sem apagar tabelas existentes.
+- Node.js 18+ (stated in the existing README; `package.json` does not declare an `engines` field)
+- npm
+- PostgreSQL, local or hosted
+- Docker is not required by the application. TODO: document a Docker setup if one is intended; no Docker Compose file is present.
 
-Para reverter a última migration:
+## Getting Started
 
-```powershell
-npm.cmd run migration:revert
-```
+1. Clone this repository. 
+   ```powershell
+   https://github.com/IsacFragoso/agendamento-backend
+   ```
+2. Install dependencies from the repository root:
 
-O backend usa `synchronize: false`; alterações de schema devem ser feitas por migrations.
+   ```powershell
+   npm install
+   ```
 
-## Executar
+3. Copy `.env.example` to `.env` in the repository root and set the values for your environment. Do not commit `.env`.
 
-Desenvolvimento, com recarregamento automático:
+   | Variable | Description |
+   | --- | --- |
+   | `NODE_ENV` | Runtime environment (`development`, `production`, or `test`). |
+   | `PORT` | HTTP port; the template uses `8000`. |
+   | `DB_HOST` | PostgreSQL host. |
+   | `DB_PORT` | PostgreSQL port; the template uses `5432`. |
+   | `DB_USER` | PostgreSQL username. |
+   | `DB_PASSWORD` | PostgreSQL password. |
+   | `DB_NAME` | PostgreSQL database name. |
+   | `DB_SSL` | SSL setting used by the TypeORM migration data source. |
+   | `JWT_SECRET` | Secret used to sign JWTs. Set a private value locally. |
+   | `JWT_EXPIRATION` | JWT lifetime in seconds; the template uses `3600`. |
 
-```powershell
-npm.cmd run start:dev
-```
+4.  Set up the database. The project uses PostgreSQL hosted on
+   [Neon](https://neon.tech); no local PostgreSQL install is needed.
+   - Ask a teammate for access to the project's Neon database, or create your
+     own free Neon project and copy its connection details.
+   - Put them in your `.env` (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`,
+     `DB_NAME`) and keep `DB_SSL=true`.
+5. Run the database migrations:
 
-Produção local:
+   ```powershell
+   npm.cmd run migration:run
+   ```
 
-```powershell
-npm.cmd run build
-npm.cmd run start:prod
-```
+6. Start the development server:
 
-A API fica disponível em `http://localhost:8000/api`.
-Execute apenas uma instância por vez para evitar conflito na porta `8000`.
+   ```powershell
+   npm.cmd run start:dev
+   ```
 
-Health check:
+7. The API uses the global `/api` prefix and defaults to `http://localhost:8000/api` (the port can be set with `PORT`).
 
-```powershell
-Invoke-RestMethod http://localhost:8000/api/health
-```
+## Available Scripts
 
-## Testes
+- `npm run build` — compile the backend.
+- `npm run format` — format TypeScript source and test files with Prettier.
+- `npm run start` — start NestJS.
+- `npm run start:dev` — start NestJS in watch mode.
+- `npm run start:debug` — start NestJS in debug/watch mode.
+- `npm run start:prod` — run the compiled application from `dist/main`.
+- `npm run test:api` — run Jest tests using `test/jest.config.js`.
+- `npm run lint` — run ESLint with automatic fixes on matching TypeScript files.
+- `npm run migration:run` — build and run pending TypeORM migrations.
+- `npm run migration:revert` — build and revert the latest TypeORM migration.
 
-Os testes são HTTP/e2e isolados: usam serviços simulados, não precisam do servidor em execução e não alteram o banco Neon.
+## Running Tests
 
-Na raiz do workspace, execute:
+Run `npm run test:api` for both unit (`*.spec.ts`) and HTTP/e2e (`*.e2e-spec.ts`) tests. There are no separate unit or e2e scripts in `package.json`. The tests use mocked services/repositories and do not require a database; do not point tests at a development database.
 
-```powershell
-npm.cmd --prefix .\agendamento-backend run test:api
-```
-
-Ou, dentro da pasta do backend:
-
-```powershell
-npm.cmd run test:api
-```
-
-Para executar somente os testes de agendamentos:
-
-```powershell
-npm.cmd run test:api -- --runTestsByPath test/appointments
-```
-
-Os testes são separados por módulo e cobrem registro, autenticação, identidade do usuário e regras de acesso para serviços, agendas, agendamentos e avaliações. O resultado esperado é uma mensagem indicando que todas as suítes e testes passaram.
-
-## Autenticação
-
-Cadastro e login são públicos:
+## Project Structure
 
 ```text
-POST /api/usuarios
-POST /api/auth/login
+src/
+├── app/        # Root application module and controller/service
+├── common/     # Shared decorators, DTOs, guards, filters, middleware, and utilities
+├── config/    # Environment configuration and validation
+├── database/  # TypeORM setup, data source, migrations, and seeds
+├── modules/   # Auth, users, services, schedules, and appointments features
+├── types/     # Shared TypeScript declarations
+└── main.ts    # Application bootstrap; configures /api and validation
 ```
 
-O login retorna `access_token`. Use-o nas rotas protegidas:
+## Documentation
 
-```http
-Authorization: Bearer SEU_ACCESS_TOKEN
-```
+- [Architecture](ARCHITECTURE.md)
+- [Agent and contributor guidance](AGENTS.md)
 
-Tipos de conta:
+## Related Repository
 
-- `CLIENTE`
-- `PRESTADOR`
-- `ADMIN`
+Frontend:<https://github.com/IsacFragoso/agendamento-frontend>. The frontend is a separate repository and needs this API running to use backend features.
 
-O cadastro público aceita somente `CLIENTE` e `PRESTADOR`. Um administrador deve ser promovido por um procedimento administrativo seguro, nunca pelo cadastro público.
+## Team Workflow
 
-## Endpoints
+For a two-person team, keep `main` stable and use short-lived branches for each task (for example, `feat/<task>`, `fix/<task>`, or `docs/<task>`). Make small, focused commits; prefixes such as `feat:`, `fix:`, and `docs:` help explain their purpose.
 
-### Usuários
+Open a pull request into `main` for each change and have the other teammate review it before merging. The reviewer should check the behavior, tests, and any API or migration impact. Before merging, run `npm run lint`, `npm run build`, and `npm run test:api` from this repository's root. Keep the process lightweight: no extra release branch or approval ceremony is needed for a two-person project.
 
-```text
-POST   /api/usuarios
-GET    /api/usuarios
-GET    /api/usuarios/:id                         protegido
-PATCH  /api/usuarios/:id                         protegido
-DELETE /api/usuarios/:id                         protegido
-PUT    /api/usuarios/:id/perfil-prestador        protegido
-```
+## Authors and Course
 
-O `DELETE` realiza anonimização: remove dados pessoais, desativa a conta e preserva agendamentos, avaliações e relacionamentos.
-
-### Categorias e serviços
-
-```text
-POST   /api/categorias                            protegido
-GET    /api/categorias
-PATCH  /api/categorias/:id                        protegido
-DELETE /api/categorias/:id                        protegido
-
-POST   /api/servicos                              protegido
-GET    /api/servicos
-GET    /api/servicos/prestador/:id
-PATCH  /api/servicos/:id                          protegido
-DELETE /api/servicos/:id                          protegido
-```
-
-Somente o prestador dono pode alterar seus serviços. Serviços são marcados como inativos quando apropriado para preservar histórico.
-
-### Disponibilidade
-
-```text
-GET    /api/prestadores/:id/horario
-PUT    /api/prestadores/:id/horario                protegido
-DELETE /api/prestadores/:id/horario                protegido
-```
-
-Somente o próprio prestador pode alterar ou limpar sua disponibilidade, salvo administradores.
-
-### Agendamentos e avaliações
-
-```text
-POST   /api/agendamentos                            protegido
-GET    /api/agendamentos                            protegido
-GET    /api/agendamentos/:id                        protegido
-PATCH  /api/agendamentos/:id/status                 protegido
-POST   /api/agendamentos/:id/avaliacao               protegido
-GET    /api/agendamentos/:id/avaliacao               protegido
-PATCH  /api/agendamentos/:id/avaliacao               protegido
-DELETE /api/agendamentos/:id/avaliacao               protegido
-```
-
-Regras principais:
-
-- Clientes criam agendamentos somente para si mesmos.
-- Prestadores alteram somente o status dos próprios agendamentos.
-- Clientes gerenciam somente avaliações dos próprios agendamentos.
-- Horários sobrepostos para o mesmo prestador são rejeitados.
-- Cancelamento usa o status `CANCELADO`; agendamentos não são apagados.
-
-Ao criar um agendamento, o cliente envia somente o serviço escolhido e o período:
-
-```json
-{
-    "id_servico": 8,
-    "data_hora_inicio": "2026-09-01T10:00:00Z",
-    "data_hora_fim": "2026-09-01T11:00:00Z"
-}
-```
-
-O backend identifica o cliente pelo JWT e deriva o prestador a partir do serviço selecionado.
-
-## Desenvolvimento seguro
-
-- Nunca coloque senhas, tokens ou `JWT_SECRET` no Git.
-- Use `.env.example` somente com valores fictícios.
-- Mantenha `DB_SSL=true` em bancos hospedados que exigem TLS.
-- Não use `synchronize` em produção.
-- Teste regras de autorização com contas `CLIENTE`, `PRESTADOR` e `ADMIN` separadas.
-- O backend bloqueia tokens de contas desativadas.
-
-## Scripts
-
-```text
-npm run build             Compila o backend
-npm run start:dev         Executa em desenvolvimento
-npm run start:prod        Executa o build de produção
-npm run test:api          Executa os testes de API
-npm run migration:run     Executa migrations pendentes
-npm run migration:revert  Reverte a última migration
-npm run lint              Executa o ESLint
-npm run format            Formata os arquivos TypeScript
-```
+- Authors:  Isaac Santos Fragoso, Jean Komuro dos Santos.
+- Course: Tecnologia em Sistemas para Internet.

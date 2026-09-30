@@ -39,9 +39,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     const usuario = await this.usuariosRepository.findOne({ where: { id_usuario: payload.sub } });
-    if (!usuario || !usuario.ativo) {
+    if (!usuario || usuario.deleted_at) {
       throw new UnauthorizedException('Conta desativada ou inexistente');
     }
-    return payload;
+    return { ...payload, tipo_conta: usuario.tipo_conta };
   }
 }

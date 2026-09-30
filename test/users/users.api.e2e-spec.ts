@@ -15,13 +15,16 @@ describe('Users API', () => {
     await request(context.app.getHttpServer())
       .post('/usuarios')
       .send({
-        nome_completo: 'Client',
         email: 'client@example.com',
-        tipo_conta: 'CLIENTE',
+        telefone: '11999998888',
         senha: 'password',
       })
       .expect(201);
-    expect(context.usersService.create).toHaveBeenCalled();
+    expect(context.usersService.create).toHaveBeenCalledWith({
+      email: 'client@example.com',
+      telefone: '11999998888',
+      senha: 'password',
+    });
   });
 
   it('rejects protected routes without authentication', async () => {
