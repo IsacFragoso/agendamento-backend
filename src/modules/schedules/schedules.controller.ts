@@ -36,8 +36,12 @@ export class SchedulesController {
 
   @Delete()
   @UseGuards(JwtAuthGuard)
-  clear(@Param('id', ParseIntPipe) id: number, @Req() request: Request) {
+  clear(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateHorarioDto,
+    @Req() request: Request,
+  ) {
     const user = request.user as { sub: number; tipo_conta: string };
-    return this.schedulesService.clear(id, user.sub, user.tipo_conta);
+    return this.schedulesService.clear(id, dto, user.sub, user.tipo_conta);
   }
 }

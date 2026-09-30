@@ -11,7 +11,7 @@ export class DistanceUtilService {
    * @returns Distance in kilometers, or null if any coordinate is missing
    */
   calcularDistanciaKm(lat1: number, lon1: number, lat2: number, lon2: number): number | null {
-    if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+    if (![lat1, lon1, lat2, lon2].every(Number.isFinite)) return null;
 
     const R = 6371; // Earth's radius in kilometers
     const dLat = (lat2 - lat1) * (Math.PI / 180);
@@ -25,7 +25,7 @@ export class DistanceUtilService {
         Math.sin(dLon / 2);
 
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return parseFloat((R * c).toFixed(2));
+    return parseFloat((R * c).toFixed(1));
   }
 
   /**

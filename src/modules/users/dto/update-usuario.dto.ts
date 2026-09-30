@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsDateString, IsOptional, IsString, Matches, MinLength } from 'class-validator';
+import { IsOptional, IsString, IsUrl, Matches, MaxLength, MinLength } from 'class-validator';
 import { sanitizePhoneNumber } from '../../../common/utils/phone.util';
 
 export class UpdateUsuarioDto {
@@ -15,6 +15,7 @@ export class UpdateUsuarioDto {
   telefone?: string;
 
   @IsOptional()
-  @IsDateString()
-  data_nascimento?: string;
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  @MaxLength(2048)
+  foto_perfil?: string;
 }

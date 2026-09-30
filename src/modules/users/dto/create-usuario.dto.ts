@@ -1,11 +1,21 @@
 import { Transform } from 'class-transformer';
-import { IsDateString, IsEmail, IsIn, IsOptional, IsString, Matches, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsIn,
+  IsOptional,
+  IsString,
+  IsUrl,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import { sanitizePhoneNumber } from '../../../common/utils/phone.util';
 
 export class CreateUsuarioDto {
+  @IsOptional()
   @IsString()
   @MinLength(2)
-  nome_completo: string;
+  nome_completo?: string;
 
   @IsEmail()
   email: string;
@@ -17,11 +27,13 @@ export class CreateUsuarioDto {
   telefone?: string;
 
   @IsOptional()
-  @IsDateString()
-  data_nascimento?: string;
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  @MaxLength(2048)
+  foto_perfil?: string;
 
-  @IsIn(['CLIENTE', 'PRESTADOR'])
-  tipo_conta: string;
+  @IsOptional()
+  @IsIn(['CLIENTE'])
+  tipo_conta?: string;
 
   @IsString()
   @MinLength(8)

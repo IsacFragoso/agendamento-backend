@@ -19,7 +19,11 @@ export class AuthService {
 
   async login(dto: LoginDto) {
     const usuario = await this.usuariosRepository.findOne({ where: { email: dto.email } });
-    if (!usuario || !usuario.ativo || !(await bcryptjs.compare(dto.senha, usuario.senha_hash))) {
+    if (
+      !usuario ||
+      usuario.deleted_at ||
+      !(await bcryptjs.compare(dto.senha, usuario.senha_hash))
+    ) {
       throw new UnauthorizedException('E-mail ou senha incorretos');
     }
 
@@ -34,9 +38,9 @@ export class AuthService {
         nome_completo: usuario.nome_completo,
         email: usuario.email,
         telefone: usuario.telefone,
-        data_nascimento: usuario.data_nascimento,
+        data_cadastro: usuario.data_cadastro,
         tipo_conta: usuario.tipo_conta,
-        ativo: usuario.ativo,
+        foto_perfil: usuario.foto_perfil,
       },
     };
   }

@@ -28,7 +28,7 @@ describe('ServicesService', () => {
       save: jest.fn((value) => Promise.resolve(value)),
     };
     const profilesRepository = {
-      findOne: jest.fn().mockResolvedValue({ id_prestador: 12 }),
+      findOne: jest.fn().mockResolvedValue({ id_usuario: 12 }),
     };
     const service = new ServicesService(
       categoriesRepository as any,
@@ -47,6 +47,6 @@ describe('ServicesService', () => {
     await expect(service.create(dto as any, 1, 'ADMIN')).resolves.toEqual(
       expect.objectContaining(dto),
     );
-    expect(profilesRepository.findOne).toHaveBeenCalledWith({ where: { id_prestador: 12 } });
+    expect(profilesRepository.findOne).toHaveBeenCalledWith({ where: { id_usuario: 12 } });
   });
 });

@@ -2,7 +2,7 @@ import { ForbiddenException } from '@nestjs/common';
 import { UsersService } from '../../src/modules/users/users.service';
 
 describe('UsersService', () => {
-  it('searches only active providers and returns public service data', async () => {
+  it('searches non-deleted providers and returns public service data', async () => {
     const query = {
       innerJoinAndSelect: jest.fn().mockReturnThis(),
       leftJoinAndSelect: jest.fn().mockReturnThis(),
@@ -13,7 +13,8 @@ describe('UsersService', () => {
         {
           id_usuario: 4,
           nome_completo: 'Ana Prestadora',
-          perfil_prestador: { bio: 'Profissional', foto_perfil: null },
+          foto_perfil: null,
+          perfil_prestador: { bio: 'Profissional' },
           servicos: [
             {
               id_servico: 2,
@@ -34,12 +35,14 @@ describe('UsersService', () => {
       {
         id_prestador: 4,
         nome_completo: 'Ana Prestadora',
+        distancia_km: null,
         perfil: { bio: 'Profissional', foto_perfil: null },
         servicos: [
           {
             id_servico: 2,
             titulo: 'Manicure',
             descricao: 'Serviço',
+            imagem_url: undefined,
             preco: 40,
             duracao_padrao: 60,
             categoria: { id_categoria: 1, nome: 'Beleza' },
@@ -100,8 +103,32 @@ describe('UsersService', () => {
     });
 
     expect(usuarioRepository.create).toHaveBeenCalledWith(
-      expect.objectContaining({ telefone: '11999998888' }),
+      expect.objectContaining({ telefone: '11999998888', tipo_conta: 'CLIENTE' }),
     );
+  });
+
+  it('creates regular users from email when signup omits a name and account type', async () => {
+    const usuarioRepository = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockImplementation((value) => value),
+      save: jest.fn().mockImplementation(async (value) => ({ id_usuario: 7, ...value })),
+    };
+    const perfilRepository = { save: jest.fn(), create: jest.fn() };
+    const service = new UsersService(usuarioRepository as any, perfilRepository as any);
+
+    await service.create({
+      email: 'new.client@example.com',
+      telefone: '11999998888',
+      senha: 'password123',
+    });
+
+    expect(usuarioRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nome_completo: 'new client',
+        tipo_conta: 'CLIENTE',
+      }),
+    );
+    expect(perfilRepository.save).not.toHaveBeenCalled();
   });
 
   it('rejects invalid phone numbers on user creation', async () => {
@@ -140,12 +167,7 @@ describe('UsersService', () => {
     };
     const service = new UsersService(usuarioRepository as any, {} as any);
 
-    const result = await service.update(
-      7,
-      { telefone: '(11) 98888 - 7777' },
-      7,
-      'CLIENTE',
-    );
+    const result = await service.update(7, { telefone: '(11) 98888 - 7777' }, 7, 'CLIENTE');
 
     expect(usuarioRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({ telefone: '11988887777' }),
@@ -153,33 +175,19 @@ describe('UsersService', () => {
     expect(result).toEqual(expect.objectContaining({ telefone: '11988887777' }));
   });
 
-  it('anonymizes the user and deactivates provider services', async () => {
+  it('soft deletes the user and deactivates provider services', async () => {
     const usuario = {
       id_usuario: 10,
       nome_completo: 'Maria Silva',
       email: 'maria@example.com',
       telefone: '11999999999',
-      data_nascimento: new Date('1990-01-01'),
+      data_cadastro: new Date('2026-09-30T12:00:00.000Z'),
       tipo_conta: 'PRESTADOR',
       senha_hash: 'hash',
-      ativo: true,
-    };
-    const perfil = {
-      id_prestador: 10,
-      latitude: -23.5,
-      longitude: -46.6,
-      foto_perfil: 'photo.jpg',
-      bio: 'Bio',
-      dias_atendimento: 'SEGUNDA',
-      horario_inicio: '08:00',
-      horario_fim: '18:00',
+      deleted_at: null,
     };
     const usuarioRepository = {
       findOne: jest.fn().mockResolvedValue(usuario),
-      save: jest.fn().mockImplementation(async (value) => value),
-    };
-    const perfilRepository = {
-      findOne: jest.fn().mockResolvedValue(perfil),
       save: jest.fn().mockImplementation(async (value) => value),
     };
     const servicoRepository = { update: jest.fn().mockResolvedValue({}) };
@@ -187,7 +195,7 @@ describe('UsersService', () => {
       getRepository: jest.fn((entity) => {
         if (entity === 'servico') return servicoRepository;
         if (entity.name === 'Usuario') return usuarioRepository;
-        return perfilRepository;
+        return {};
       }),
     };
     const repository = {
@@ -200,10 +208,61 @@ describe('UsersService', () => {
     await expect(service.remove(10, 10, 'PRESTADOR')).resolves.toEqual({
       message: 'Dados pessoais removidos com sucesso',
     });
-    expect(usuario.nome_completo).toBe('Usuário removido');
-    expect(usuario.ativo).toBe(false);
-    expect(usuario.email).toContain('@example.invalid');
-    expect(perfil.foto_perfil).toBeNull();
+    expect(usuario.nome_completo).toBe('Maria Silva');
+    expect(usuario.email).toBe('maria@example.com');
+    expect(usuario.deleted_at).toBeInstanceOf(Date);
     expect(servicoRepository.update).toHaveBeenCalledWith({ id_prestador: 10 }, { ativo: false });
+  });
+
+  it('promotes a client and creates a provider profile during onboarding', async () => {
+    const usuario = {
+      id_usuario: 12,
+      nome_completo: 'Joana Cliente',
+      email: 'joana@example.com',
+      tipo_conta: 'CLIENTE',
+      senha_hash: 'hash',
+      deleted_at: null,
+    };
+    const usuarioRepository = {
+      findOne: jest.fn().mockResolvedValue(usuario),
+      save: jest.fn().mockImplementation(async (value) => value),
+    };
+    const perfil = {
+      id_usuario: 12,
+      bio: 'Especialista em beleza',
+      latitude: -21.2,
+      longitude: -50.3,
+    };
+    const perfilRepository = {
+      create: jest.fn().mockReturnValue(perfil),
+      save: jest.fn().mockResolvedValue(perfil),
+    };
+    const manager = {
+      getRepository: jest.fn((entity) =>
+        entity.name === 'Usuario' ? usuarioRepository : perfilRepository,
+      ),
+    };
+    const repository = {
+      manager: {
+        transaction: jest.fn((callback) => callback(manager)),
+      },
+    };
+    const service = new UsersService(repository as any, {} as any);
+
+    await expect(
+      service.becomeProvider(
+        12,
+        { bio: perfil.bio, latitude: perfil.latitude, longitude: perfil.longitude },
+        12,
+        'CLIENTE',
+      ),
+    ).resolves.toEqual({
+      usuario: expect.objectContaining({ id_usuario: 12, tipo_conta: 'PRESTADOR' }),
+      perfil_prestador: perfil,
+    });
+    expect(perfilRepository.save).toHaveBeenCalledWith(perfil);
+    expect(usuarioRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ tipo_conta: 'PRESTADOR' }),
+    );
   });
 });

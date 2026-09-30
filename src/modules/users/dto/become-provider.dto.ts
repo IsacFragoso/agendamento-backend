@@ -1,6 +1,9 @@
 import { IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 
-export class UpsertPerfilPrestadorDto {
+export class BecomeProviderDto {
+  @IsString()
+  bio: string;
+
   @IsOptional()
   @IsNumber()
   @Min(-90)
@@ -12,8 +15,4 @@ export class UpsertPerfilPrestadorDto {
   @Min(-180)
   @Max(180)
   longitude?: number;
-
-  @IsOptional()
-  @IsString()
-  bio?: string;
 }

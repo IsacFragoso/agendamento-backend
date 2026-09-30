@@ -7,6 +7,8 @@ import { Categoria } from '@modules/services/entities/categoria.entity';
 import { Servico } from '@modules/services/entities/servico.entity';
 import { Agendamento } from '@modules/appointments/entities/agendamento.entity';
 import { Avaliacao } from '@modules/appointments/entities/avaliacao.entity';
+import { Horario } from '@modules/schedules/entities/horario.entity';
+import { RevokedToken } from '@modules/auth/entities/revoked-token.entity';
 
 @Module({
   imports: [
@@ -19,7 +21,16 @@ import { Avaliacao } from '@modules/appointments/entities/avaliacao.entity';
         username: configService.get('DB_USER', 'postgres'),
         password: configService.get('DB_PASSWORD', ''),
         database: configService.get('DB_NAME', 'agendamento'),
-        entities: [Usuario, PerfilPrestador, Categoria, Servico, Agendamento, Avaliacao],
+        entities: [
+          Usuario,
+          PerfilPrestador,
+          Categoria,
+          Servico,
+          Agendamento,
+          Avaliacao,
+          Horario,
+          RevokedToken,
+        ],
         migrations: [__dirname + '/migrations/*.{js,ts}'],
         synchronize: false,
         logging: configService.get('NODE_ENV') !== 'production',

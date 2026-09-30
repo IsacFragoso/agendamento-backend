@@ -22,7 +22,6 @@ export class UpdateServicoDto {
   duracao_padrao?: number;
 
   @IsOptional()
-  @Type(() => Number)
   @IsBoolean()
   ativo?: boolean;
 

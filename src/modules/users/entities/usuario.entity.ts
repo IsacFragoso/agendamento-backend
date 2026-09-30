@@ -1,4 +1,11 @@
-import { Column, Entity, OneToMany, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  OneToMany,
+  OneToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { PerfilPrestador } from './perfil-prestador.entity';
 import { Servico } from '../../services/entities/servico.entity';
 import { Agendamento } from '../../appointments/entities/agendamento.entity';
@@ -17,8 +24,11 @@ export class Usuario {
   @Column({ type: 'varchar', length: 50, nullable: true })
   telefone: string | null;
 
-  @Column({ type: 'date', nullable: true })
-  data_nascimento: Date | null;
+  @CreateDateColumn({ name: 'data_cadastro', type: 'timestamptz' })
+  data_cadastro: Date;
+
+  @Column({ type: 'text', nullable: true })
+  foto_perfil: string | null;
 
   @Column({ length: 50 })
   tipo_conta: string;
@@ -26,8 +36,8 @@ export class Usuario {
   @Column({ length: 255 })
   senha_hash: string;
 
-  @Column({ default: true })
-  ativo: boolean;
+  @Column({ type: 'timestamptz', nullable: true })
+  deleted_at: Date | null;
 
   @OneToOne(() => PerfilPrestador, (perfil) => perfil.usuario)
   perfil_prestador: PerfilPrestador | null;
