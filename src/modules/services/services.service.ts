@@ -86,11 +86,15 @@ export class ServicesService {
     return this.servicosRepository.find({ relations: { categoria: true, prestador: true } });
   }
 
-  findByProvider(id_prestador: number) {
-    return this.servicosRepository.find({
+  async findByProvider(id_prestador: number) {
+    const services = await this.servicosRepository.find({
       where: { id_prestador },
       relations: { categoria: true },
     });
+    return services.map((s) => ({
+      ...s,
+      preco: s.preco == null ? null : Number(s.preco),
+    }));
   }
 
   async update(id: number, dto: UpdateServicoDto, requesterId: number, requesterType: string) {

@@ -123,7 +123,9 @@ export class UsersService {
       ])
       .getMany();
 
-    return providers.map((provider) => ({
+    return providers.map((provider) => {
+      const services = (provider.servicos ?? provider.perfil_prestador?.servicos) ?? [];
+      return ({
       id_prestador: provider.id_usuario,
       nome_completo: provider.nome_completo,
       distancia_km:
@@ -142,15 +144,16 @@ export class UsersService {
             imagem_banner: provider.perfil_prestador.imagem_banner,
           }
         : null,
-      servicos: (provider.servicos ?? []).map((service) => ({
+      servicos: services.map((service) => ({
         id_servico: service.id_servico,
         titulo: service.titulo,
         descricao: service.descricao,
-        preco: service.preco,
+        preco: service.preco == null ? null : Number(service.preco),
         duracao_padrao: service.duracao_padrao,
         categoria: service.categoria,
       })),
-    }));
+    });
+    });
   }
 
   async findOne(id: number, requesterId: number, requesterType: string) {
