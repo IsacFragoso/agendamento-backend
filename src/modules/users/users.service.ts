@@ -19,6 +19,7 @@ import { BecomeProviderDto } from './dto/become-provider.dto';
 import { UpsertPerfilPrestadorDto } from './dto/upsert-perfil-prestador.dto';
 import { SearchPrestadoresDto } from './dto/search-prestadores.dto';
 import { isValidPhoneNumber, sanitizePhoneNumber } from '../../common/utils/phone.util';
+import { getPostgresErrorCode } from '../../common/utils/database-error.util';
 import { CloudinaryService, UploadedImageFile } from '../../common/storage/cloudinary.service';
 import { DistanceUtilService } from '../../common/utils/distance.util';
 
@@ -56,7 +57,15 @@ export class UsersService {
       tipo_conta: 'CLIENTE',
       senha_hash: await bcryptjs.hash(dto.senha, 10),
     });
-    const saved = await this.usuariosRepository.save(usuario);
+    let saved: Usuario;
+    try {
+      saved = await this.usuariosRepository.save(usuario);
+    } catch (error) {
+      if (getPostgresErrorCode(error) === '23505') {
+        throw new ConflictException('E-mail já cadastrado');
+      }
+      throw error;
+    }
 
     return this.withoutPassword(saved);
   }
@@ -67,6 +76,39 @@ export class UsersService {
       relations: { perfil_prestador: true },
     });
     return usuarios.map((usuario) => this.withoutPassword(usuario));
+  }
+
+  async findPublicProvider(id: number) {
+    const provider = await this.usuariosRepository.findOne({
+      where: { id_usuario: id, tipo_conta: 'PRESTADOR', deleted_at: IsNull() },
+      relations: { perfil_prestador: { servicos: { categoria: true } } },
+    });
+
+    if (!provider?.perfil_prestador) {
+      throw new NotFoundException('Prestador não encontrado');
+    }
+
+    return {
+      id_prestador: provider.id_usuario,
+      nome_completo: provider.nome_completo,
+      perfil: {
+        foto_perfil: provider.foto_perfil,
+        bio: provider.perfil_prestador.bio,
+        imagem_banner: provider.perfil_prestador.imagem_banner,
+      },
+      servicos: (provider.perfil_prestador.servicos ?? [])
+        .filter((service) => service.ativo)
+        .map((service) => ({
+          id_servico: service.id_servico,
+          titulo: service.titulo,
+          descricao: service.descricao,
+          preco: service.preco == null ? null : Number(service.preco),
+          duracao_padrao: service.duracao_padrao,
+          categoria: service.categoria
+            ? { id_categoria: service.categoria.id_categoria, nome: service.categoria.nome }
+            : null,
+        })),
+    };
   }
 
   async searchProviders(dto: SearchPrestadoresDto) {

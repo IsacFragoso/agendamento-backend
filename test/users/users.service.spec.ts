@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { UsersService } from '../../src/modules/users/users.service';
 
 describe('UsersService', () => {
@@ -105,6 +105,22 @@ describe('UsersService', () => {
     expect(usuarioRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({ telefone: '11999998888', tipo_conta: 'CLIENTE' }),
     );
+  });
+
+  it('returns a conflict when concurrent user creation violates the unique email key', async () => {
+    const usuarioRepository = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockImplementation((value) => value),
+      save: jest.fn().mockRejectedValue({ driverError: { code: '23505' } }),
+    };
+    const service = new UsersService(usuarioRepository as any, {} as any);
+
+    await expect(service.create({
+      nome_completo: 'Cliente',
+      email: 'client@example.com',
+      telefone: '11999998888',
+      senha: 'password123',
+    })).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('creates regular users from email when signup omits a name and account type', async () => {

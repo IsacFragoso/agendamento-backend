@@ -147,4 +147,28 @@ describe('AppointmentsService', () => {
       data_hora_fim: new Date('2026-09-01T11:00:00Z'),
     });
   });
+
+  it('returns a conflict if a related provider or service disappears during booking', async () => {
+    const mocks = repositories();
+    const queryBuilder = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    };
+    mocks.appointments.createQueryBuilder.mockReturnValue(queryBuilder);
+    mocks.appointments.save.mockRejectedValue({ driverError: { code: '23503' } });
+    const service = new AppointmentsService(
+      mocks.appointments as any,
+      mocks.reviews as any,
+      mocks.users as any,
+      mocks.profiles as any,
+      mocks.services as any,
+    );
+
+    await expect(service.create({
+      id_servico: 3,
+      data_hora_inicio: '2026-09-01T10:00:00Z',
+      data_hora_fim: '2026-09-01T11:00:00Z',
+    } as any, 7, 'CLIENTE')).rejects.toBeInstanceOf(ConflictException);
+  });
 });

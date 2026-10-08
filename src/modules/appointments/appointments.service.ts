@@ -15,6 +15,7 @@ import { Avaliacao } from './entities/avaliacao.entity';
 import { Usuario } from '../users/entities/usuario.entity';
 import { PerfilPrestador } from '../users/entities/perfil-prestador.entity';
 import { Servico } from '../services/entities/servico.entity';
+import { getPostgresErrorCode } from '../../common/utils/database-error.util';
 
 @Injectable()
 export class AppointmentsService {
@@ -55,15 +56,22 @@ export class AppointmentsService {
       .getOne();
     if (overlapping) throw new ConflictException('Prestador não disponível nesse horário');
 
-    return this.agendamentosRepository.save(
-      this.agendamentosRepository.create({
+    try {
+      return await this.agendamentosRepository.save(
+        this.agendamentosRepository.create({
         id_cliente: clientId,
         id_prestador: service.id_prestador,
         id_servico: dto.id_servico,
         data_hora_inicio: new Date(dto.data_hora_inicio),
         data_hora_fim: new Date(dto.data_hora_fim),
-      }),
-    );
+        }),
+      );
+    } catch (error) {
+      if (getPostgresErrorCode(error) === '23503') {
+        throw new ConflictException('O serviço ou prestador não está mais disponível');
+      }
+      throw error;
+    }
   }
 
   findAllForUser(requesterId: number, requesterType: string) {

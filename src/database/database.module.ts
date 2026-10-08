@@ -1,14 +1,14 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { Usuario } from '@modules/users/entities/usuario.entity';
-import { PerfilPrestador } from '@modules/users/entities/perfil-prestador.entity';
-import { Categoria } from '@modules/services/entities/categoria.entity';
-import { Servico } from '@modules/services/entities/servico.entity';
-import { Agendamento } from '@modules/appointments/entities/agendamento.entity';
-import { Avaliacao } from '@modules/appointments/entities/avaliacao.entity';
-import { Horario } from '@modules/schedules/entities/horario.entity';
-import { RevokedToken } from '@modules/auth/entities/revoked-token.entity';
+import { Usuario } from '../modules/users/entities/usuario.entity';
+import { PerfilPrestador } from '../modules/users/entities/perfil-prestador.entity';
+import { Categoria } from '../modules/services/entities/categoria.entity';
+import { Servico } from '../modules/services/entities/servico.entity';
+import { Agendamento } from '../modules/appointments/entities/agendamento.entity';
+import { Avaliacao } from '../modules/appointments/entities/avaliacao.entity';
+import { Horario } from '../modules/schedules/entities/horario.entity';
+import { RevokedToken } from '../modules/auth/entities/revoked-token.entity';
 
 @Module({
   imports: [
@@ -34,7 +34,10 @@ import { RevokedToken } from '@modules/auth/entities/revoked-token.entity';
         migrations: [__dirname + '/migrations/*.{js,ts}'],
         synchronize: false,
         logging: configService.get('NODE_ENV') !== 'production',
-        ssl: configService.get('DB_HOST') !== 'localhost' ? { rejectUnauthorized: false } : false,
+        ssl:
+          configService.get('DB_HOST') !== 'localhost'
+            ? { rejectUnauthorized: false }
+            : false,
       }),
       inject: [ConfigService],
     }),

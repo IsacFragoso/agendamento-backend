@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
 import { SearchPrestadoresDto } from './dto/search-prestadores.dto';
 import { UsersService } from './users.service';
 
@@ -9,5 +9,10 @@ export class ProvidersController {
   @Get()
   search(@Query() dto: SearchPrestadoresDto) {
     return this.usersService.searchProviders(dto);
+  }
+
+  @Get(':id')
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.findPublicProvider(id);
   }
 }

@@ -1,7 +1,18 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { ServicesService } from '../../src/modules/services/services.service';
 
 describe('ServicesService', () => {
+  it('returns a conflict when concurrent category creation violates the unique key', async () => {
+    const categoriesRepository = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn((value) => value),
+      save: jest.fn().mockRejectedValue({ driverError: { code: '23505' } }),
+    };
+    const service = new ServicesService(categoriesRepository as any, {} as any, {} as any);
+
+    await expect(service.createCategory({ nome: 'Beleza' })).rejects.toBeInstanceOf(ConflictException);
+  });
+
   it('rejects service creation by a client', async () => {
     const service = new ServicesService({} as any, {} as any, {} as any);
 
@@ -48,5 +59,25 @@ describe('ServicesService', () => {
       expect.objectContaining(dto),
     );
     expect(profilesRepository.findOne).toHaveBeenCalledWith({ where: { id_usuario: 12 } });
+  });
+
+  it('archives a service without deleting its appointment history', async () => {
+    const serviceRecord = { id_servico: 4, id_prestador: 12, ativo: true };
+    const servicesRepository = {
+      findOne: jest.fn().mockResolvedValue(serviceRecord),
+      save: jest.fn().mockImplementation(async (value) => value),
+      remove: jest.fn(),
+    };
+    const service = new ServicesService({} as any, servicesRepository as any, {} as any);
+
+    await expect(service.remove(4, 12, 'PRESTADOR')).resolves.toEqual({
+      message: 'Serviço arquivado com sucesso',
+    });
+    expect(servicesRepository.save).toHaveBeenCalledWith({
+      id_servico: 4,
+      id_prestador: 12,
+      ativo: false,
+    });
+    expect(servicesRepository.remove).not.toHaveBeenCalled();
   });
 });

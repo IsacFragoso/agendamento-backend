@@ -27,6 +27,11 @@ describe('Users API', () => {
     });
   });
 
+  it('returns public provider details by id', async () => {
+    await request(context.app.getHttpServer()).get('/prestadores/8').expect(200);
+    expect(context.usersService.findPublicProvider).toHaveBeenCalledWith(8);
+  });
+
   it('rejects protected routes without authentication', async () => {
     context.setAuthenticated(false);
     await request(context.app.getHttpServer()).get('/usuarios/7').expect(401);

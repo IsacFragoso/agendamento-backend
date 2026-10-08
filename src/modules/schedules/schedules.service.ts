@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -9,6 +10,10 @@ import { Repository } from 'typeorm';
 import { UpdateHorarioDto } from './dto/update-horario.dto';
 import { PerfilPrestador } from '../users/entities/perfil-prestador.entity';
 import { Horario } from './entities/horario.entity';
+import { Servico } from '../services/entities/servico.entity';
+import { Agendamento } from '../appointments/entities/agendamento.entity';
+import { ProviderAvailabilityQueryDto } from './dto/provider-availability-query.dto';
+import { getPostgresErrorCode } from '../../common/utils/database-error.util';
 
 @Injectable()
 export class SchedulesService {
@@ -17,6 +22,10 @@ export class SchedulesService {
     private readonly perfisRepository: Repository<PerfilPrestador>,
     @InjectRepository(Horario)
     private readonly horariosRepository: Repository<Horario>,
+    @InjectRepository(Servico)
+    private readonly servicosRepository: Repository<Servico>,
+    @InjectRepository(Agendamento)
+    private readonly agendamentosRepository: Repository<Agendamento>,
   ) {}
 
   async findByProvider(id_prestador: number) {
@@ -35,6 +44,59 @@ export class SchedulesService {
     }));
   }
 
+  async getAvailableSlots(id_prestador: number, query: ProviderAvailabilityQueryDto) {
+    const service = await this.servicosRepository.findOne({
+      where: { id_servico: query.servico_id, id_prestador, ativo: true },
+    });
+    if (!service) throw new NotFoundException('Serviço não encontrado para este prestador');
+
+    const date = new Date(`${query.data}T00:00:00.000Z`);
+    if (Number.isNaN(date.getTime())) throw new BadRequestException('Data inválida');
+    const weekday = date.getUTCDay();
+    const dayStart = date;
+    const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+    const schedule = await this.horariosRepository.find({
+      where: { id_prestador, dia_semana: weekday },
+      order: { hora_inicio: 'ASC' },
+    });
+    const bookings = await this.agendamentosRepository
+      .createQueryBuilder('agendamento')
+      .where('agendamento.id_prestador = :provider', { provider: id_prestador })
+      .andWhere('agendamento.status != :cancelled', { cancelled: 'CANCELADO' })
+      .andWhere('agendamento.data_hora_inicio < :dayEnd', { dayEnd })
+      .andWhere('agendamento.data_hora_fim > :dayStart', { dayStart })
+      .getMany();
+
+    const now = Date.now();
+    const slots = new Set<string>();
+    const duration = Number(service.duracao_padrao);
+
+    schedule.forEach((interval) => {
+      const [startHour, startMinute] = interval.hora_inicio.split(':').map(Number);
+      const [endHour, endMinute] = interval.hora_fim.split(':').map(Number);
+      const intervalStart = startHour * 60 + startMinute;
+      const intervalEnd = endHour * 60 + endMinute;
+
+      for (let minute = intervalStart; minute + duration <= intervalEnd; minute += 30) {
+        const start = new Date(dayStart.getTime() + minute * 60_000);
+        const end = new Date(start.getTime() + duration * 60_000);
+        if (start.getTime() <= now) continue;
+
+        const overlaps = bookings.some((booking) => (
+          new Date(booking.data_hora_inicio).getTime() < end.getTime() &&
+          new Date(booking.data_hora_fim).getTime() > start.getTime()
+        ));
+        if (!overlaps) {
+          slots.add(
+            `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`,
+          );
+        }
+      }
+    });
+
+    return [...slots].sort();
+  }
+
   async update(
     id_prestador: number,
     dto: UpdateHorarioDto,
@@ -49,14 +111,25 @@ export class SchedulesService {
     if (!dto.horario_inicio || !dto.horario_fim || dto.horario_inicio >= dto.horario_fim) {
       throw new BadRequestException('Intervalo de horário inválido');
     }
-    return this.horariosRepository.save(
-      this.horariosRepository.create({
-        dia_semana,
-        hora_inicio: dto.horario_inicio,
-        hora_fim: dto.horario_fim,
-        id_prestador,
-      }),
-    );
+    const interval = {
+      dia_semana,
+      hora_inicio: dto.horario_inicio,
+      hora_fim: dto.horario_fim,
+      id_prestador,
+    };
+    const existing = await this.horariosRepository.findOne({ where: interval });
+    if (existing) return existing;
+
+    try {
+      return await this.horariosRepository.save(this.horariosRepository.create(interval));
+    } catch (error) {
+      if (getPostgresErrorCode(error) === '23505') {
+        const concurrentDuplicate = await this.horariosRepository.findOne({ where: interval });
+        if (concurrentDuplicate) return concurrentDuplicate;
+        throw new ConflictException('Este intervalo já está cadastrado');
+      }
+      throw error;
+    }
   }
 
   async clear(
