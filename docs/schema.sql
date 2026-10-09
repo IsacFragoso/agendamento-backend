@@ -43,7 +43,7 @@ CREATE TABLE "servico" (
     CONSTRAINT "FK_servico_prestador" FOREIGN KEY ("id_prestador")
         REFERENCES "perfil_prestador"("id_usuario") ON DELETE CASCADE,
     CONSTRAINT "FK_servico_categoria" FOREIGN KEY ("id_categoria")
-        REFERENCES "categoria"("id_categoria") ON DELETE NO ACTION
+        REFERENCES "categoria"("id_categoria")
 );
 
 CREATE TABLE "horarios" (
@@ -73,12 +73,12 @@ CREATE TABLE "agendamento" (
     CONSTRAINT "CK_agendamento_status"
         CHECK ("status" IN ('PENDENTE', 'CONFIRMADO', 'CANCELADO', 'CONCLUIDO')),
     CONSTRAINT "FK_agendamento_cliente" FOREIGN KEY ("id_cliente")
-        REFERENCES "usuario"("id_usuario") ON DELETE NO ACTION,
+        REFERENCES "usuario"("id_usuario"),
     CONSTRAINT "FK_agendamento_prestador" FOREIGN KEY ("id_prestador")
-        REFERENCES "perfil_prestador"("id_usuario") ON DELETE NO ACTION,
+        REFERENCES "perfil_prestador"("id_usuario"),
     CONSTRAINT "FK_agendamento_servico_prestador"
         FOREIGN KEY ("id_servico", "id_prestador")
-        REFERENCES "servico"("id_servico", "id_prestador") ON DELETE NO ACTION
+        REFERENCES "servico"("id_servico", "id_prestador")
 );
 
 CREATE TABLE "avaliacao" (
