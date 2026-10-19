@@ -14,10 +14,7 @@ import { Avaliacao } from './avaliacao.entity';
 
 @Entity('agendamento')
 @Check('CK_agendamento_intervalo', '"data_hora_fim" > "data_hora_inicio"')
-@Check(
-  'CK_agendamento_status',
-  `"status" IN ('PENDENTE', 'CONFIRMADO', 'CANCELADO', 'CONCLUIDO')`,
-)
+@Check('CK_agendamento_status', `"status" IN ('PENDENTE', 'CONFIRMADO', 'CANCELADO', 'CONCLUIDO')`)
 export class Agendamento {
   @PrimaryGeneratedColumn({ name: 'id_agendamento' })
   id_agendamento: number;

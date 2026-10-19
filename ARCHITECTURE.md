@@ -112,7 +112,7 @@ Throw Nest's built-in exceptions (`BadRequestException`, `ConflictException`, ..
 - The team currently shares one Neon database for development. Running a migration changes shared data and requires explicit authorization. No separate Neon branch or test database is currently configured.
 - Schema changes go through migrations only; `synchronize` stays off.
 - Workflow: change the entity → generate a migration → **read it** → run it → commit both. Never edit a migration that was already merged.
-- Commands: `npm.cmd run build`, then `npm.cmd run migration:run` or `npm.cmd run migration:revert`. The scripts use the compiled datasource at `dist/src/database/data-source.js`.
+- Commands: `npm.cmd run build`, then `npm.cmd run migration:run` or `npm.cmd run migration:revert`. The scripts use the compiled datasource at `dist/database/data-source.js`.
 
 ## 7. Transactions and booking concurrency
 

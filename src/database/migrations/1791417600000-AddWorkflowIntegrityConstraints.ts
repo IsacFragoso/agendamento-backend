@@ -89,7 +89,9 @@ export class AddWorkflowIntegrityConstraints1791417600000 implements MigrationIn
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query('ALTER TABLE "horarios" DROP CONSTRAINT "UQ_horarios_provider_interval"');
+    await queryRunner.query(
+      'ALTER TABLE "horarios" DROP CONSTRAINT "UQ_horarios_provider_interval"',
+    );
     await queryRunner.query(
       'ALTER TABLE "agendamento" DROP CONSTRAINT "FK_agendamento_servico_prestador"',
     );

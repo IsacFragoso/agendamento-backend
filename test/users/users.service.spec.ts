@@ -14,7 +14,7 @@ describe('UsersService', () => {
           id_usuario: 4,
           nome_completo: 'Ana Prestadora',
           foto_perfil: null,
-          perfil_prestador: { bio: 'Profissional' },
+          perfil_prestador: { bio: 'Profissional', cidade: null, estado: null },
           servicos: [
             {
               id_servico: 2,
@@ -36,7 +36,7 @@ describe('UsersService', () => {
         id_prestador: 4,
         nome_completo: 'Ana Prestadora',
         distancia_km: null,
-        perfil: { bio: 'Profissional', foto_perfil: null },
+        perfil: { bio: 'Profissional', foto_perfil: null, cidade: null, estado: null },
         servicos: [
           {
             id_servico: 2,
@@ -54,6 +54,100 @@ describe('UsersService', () => {
       name: '%Ana%',
     });
     expect(query.select).toHaveBeenCalled();
+  });
+
+  it('includes city and state in public profiles without returning coordinates', async () => {
+    const usuario = {
+      id_usuario: 4,
+      nome_completo: 'Ana Prestadora',
+      foto_perfil: null,
+      perfil_prestador: {
+        bio: 'Profissional',
+        imagem_banner: null,
+        cidade: 'Bauru',
+        estado: 'SP',
+        latitude: -22.3,
+        longitude: -49.1,
+        servicos: [],
+      },
+    };
+    const repository = { findOne: jest.fn().mockResolvedValue(usuario) };
+    const service = new UsersService(repository as any, {} as any);
+
+    const profile = await service.findPublicProvider(4);
+
+    expect(profile.perfil).toEqual({
+      foto_perfil: null,
+      bio: 'Profissional',
+      imagem_banner: null,
+      cidade: 'Bauru',
+      estado: 'SP',
+    });
+    expect(profile.perfil).not.toHaveProperty('latitude');
+    expect(profile.perfil).not.toHaveProperty('longitude');
+  });
+
+  it('returns public reviews without reviewer information and with aggregate metadata', async () => {
+    const rowsQuery = {
+      innerJoin: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([
+        [
+          {
+            id_avaliacao: 23,
+            nota_estrelas: 5,
+            comentario: 'Ótimo atendimento',
+            data: new Date('2026-10-10'),
+          },
+        ],
+        8,
+      ]),
+    };
+    const averageQuery = {
+      innerJoin: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue({ media: '4.625' }),
+    };
+    const reviewsRepository = {
+      createQueryBuilder: jest
+        .fn()
+        .mockReturnValueOnce(rowsQuery)
+        .mockReturnValueOnce(averageQuery),
+    };
+    const usersRepository = {
+      findOne: jest.fn().mockResolvedValue({ id_usuario: 4 }),
+    };
+    const service = new UsersService(
+      usersRepository as any,
+      {} as any,
+      reviewsRepository as any,
+    );
+
+    await expect(
+      service.findPublicProviderReviews(4, { pagina: 2, limite: 5 }),
+    ).resolves.toEqual({
+      avaliacoes: [
+        {
+          avaliador: 'Cliente',
+          nota_estrelas: 5,
+          comentario: 'Ótimo atendimento',
+          data: new Date('2026-10-10'),
+        },
+      ],
+      media_avaliacoes: 4.625,
+      total_avaliacoes: 8,
+      pagina: 2,
+      limite: 5,
+    });
+    expect(rowsQuery.skip).toHaveBeenCalledWith(5);
+    expect(rowsQuery.take).toHaveBeenCalledWith(5);
+    expect(rowsQuery.where).toHaveBeenCalledWith('agendamento.id_prestador = :id', { id: 4 });
   });
 
   it('requires latitude and longitude together', async () => {

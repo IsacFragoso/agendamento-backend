@@ -34,10 +34,7 @@ import { RevokedToken } from '../modules/auth/entities/revoked-token.entity';
         migrations: [__dirname + '/migrations/*.{js,ts}'],
         synchronize: false,
         logging: configService.get('NODE_ENV') !== 'production',
-        ssl:
-          configService.get('DB_HOST') !== 'localhost'
-            ? { rejectUnauthorized: false }
-            : false,
+        ssl: configService.get('DB_HOST') !== 'localhost' ? { rejectUnauthorized: false } : false,
       }),
       inject: [ConfigService],
     }),

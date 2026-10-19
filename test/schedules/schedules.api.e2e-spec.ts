@@ -15,7 +15,14 @@ describe('Schedules API', () => {
     await request(context.app.getHttpServer())
       .get('/prestadores/7/horario/disponibilidade?servico_id=3&data=2026-10-13')
       .expect(200)
-      .expect(['09:00']);
+      .expect([
+        {
+          hora: '09:00',
+          inicio: '2026-10-13T12:00:00.000Z',
+          fim: '2026-10-13T13:00:00.000Z',
+          disponivel: true,
+        },
+      ]);
     expect(context.schedulesService.getAvailableSlots).toHaveBeenCalledWith(7, {
       servico_id: '3',
       data: '2026-10-13',

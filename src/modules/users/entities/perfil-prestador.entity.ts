@@ -18,6 +18,12 @@ export class PerfilPrestador {
   @Column({ type: 'text', nullable: true })
   bio: string | null;
 
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  cidade: string | null;
+
+  @Column({ type: 'varchar', length: 2, nullable: true })
+  estado: string | null;
+
   @Column({ type: 'text', nullable: true })
   imagem_banner: string | null;
 

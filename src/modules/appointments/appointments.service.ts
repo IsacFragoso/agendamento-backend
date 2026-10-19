@@ -33,8 +33,8 @@ export class AppointmentsService {
   ) {}
 
   async create(dto: CreateAgendamentoDto, requesterId: number, requesterType: string) {
-    if (requesterType !== 'ADMIN' && requesterType !== 'CLIENTE') {
-      throw new ForbiddenException('Apenas clientes podem criar agendamentos para si mesmos');
+    if (requesterType !== 'ADMIN' && requesterType !== 'CLIENTE' && requesterType !== 'PRESTADOR') {
+      throw new ForbiddenException('Tipo de conta não pode criar agendamentos');
     }
     if (requesterType === 'ADMIN' && !dto.id_cliente) {
       throw new ForbiddenException('Administradores devem informar o cliente do agendamento');
@@ -47,30 +47,70 @@ export class AppointmentsService {
     const service = await this.requireService(dto.id_servico);
     if (!service.ativo) throw new ConflictException('O serviço está inativo');
     await this.requireProfile(service.id_prestador);
-    const overlapping = await this.agendamentosRepository
-      .createQueryBuilder('agendamento')
-      .where('agendamento.id_prestador = :provider', { provider: service.id_prestador })
-      .andWhere('agendamento.status NOT IN (:...statuses)', { statuses: ['CANCELADO'] })
-      .andWhere('agendamento.data_hora_inicio < :end', { end: dto.data_hora_fim })
-      .andWhere('agendamento.data_hora_fim > :start', { start: dto.data_hora_inicio })
-      .getOne();
-    if (overlapping) throw new ConflictException('Prestador não disponível nesse horário');
+    if (clientId === service.id_prestador) {
+      throw new ForbiddenException('Você não pode agendar um serviço seu');
+    }
+    // Date objects are serialized the same way as the saved values; raw ISO strings are not.
+    const start = new Date(dto.data_hora_inicio);
+    const end = new Date(dto.data_hora_fim);
+    const providerBusy = await this.findOverlapping(
+      'id_prestador',
+      service.id_prestador,
+      start,
+      end,
+    );
+    if (providerBusy) throw new ConflictException('Prestador não disponível nesse horário');
+    const clientBusy = await this.findOverlapping('id_cliente', clientId, start, end);
+    if (clientBusy) {
+      throw new ConflictException('Você já possui um agendamento nesse horário');
+    }
 
     try {
       return await this.agendamentosRepository.save(
         this.agendamentosRepository.create({
-        id_cliente: clientId,
-        id_prestador: service.id_prestador,
-        id_servico: dto.id_servico,
-        data_hora_inicio: new Date(dto.data_hora_inicio),
-        data_hora_fim: new Date(dto.data_hora_fim),
+          id_cliente: clientId,
+          id_prestador: service.id_prestador,
+          id_servico: dto.id_servico,
+          data_hora_inicio: start,
+          data_hora_fim: end,
         }),
       );
     } catch (error) {
-      if (getPostgresErrorCode(error) === '23503') {
-        throw new ConflictException('O serviço ou prestador não está mais disponível');
-      }
+      this.rethrowAppointmentConflict(error);
       throw error;
+    }
+  }
+
+  // The column is chosen from a fixed pair, never from input.
+  private findOverlapping(
+    column: 'id_prestador' | 'id_cliente',
+    id: number,
+    start: Date,
+    end: Date,
+  ) {
+    return this.agendamentosRepository
+      .createQueryBuilder('agendamento')
+      .where(`agendamento.${column} = :id`, { id })
+      .andWhere('agendamento.status NOT IN (:...statuses)', { statuses: ['CANCELADO'] })
+      .andWhere('agendamento.data_hora_inicio < :end', { end })
+      .andWhere('agendamento.data_hora_fim > :start', { start })
+      .getOne();
+  }
+
+  // 23P01: exclusion constraint hit by a concurrent request that passed the checks above.
+  private rethrowAppointmentConflict(error: unknown) {
+    const code = getPostgresErrorCode(error);
+    if (code === '23P01') {
+      const constraint = (error as { driverError?: { constraint?: string } }).driverError
+        ?.constraint;
+      throw new ConflictException(
+        constraint === 'EX_agendamento_cliente_sem_sobreposicao'
+          ? 'Você já possui um agendamento nesse horário'
+          : 'Prestador não disponível nesse horário',
+      );
+    }
+    if (code === '23503') {
+      throw new ConflictException('O serviço ou prestador não está mais disponível');
     }
   }
 
@@ -82,7 +122,13 @@ export class AppointmentsService {
       });
     }
     if (requesterType === 'CLIENTE') return this.findByClient(requesterId);
-    if (requesterType === 'PRESTADOR') return this.findByProvider(requesterId);
+    if (requesterType === 'PRESTADOR') {
+      return this.agendamentosRepository.find({
+        where: { id_prestador: requesterId },
+        relations: { cliente: true, prestador: true, servico: true, avaliacao: true },
+        order: { data_hora_inicio: 'ASC' },
+      });
+    }
     throw new ForbiddenException('Tipo de conta sem acesso a agendamentos');
   }
 
@@ -127,7 +173,13 @@ export class AppointmentsService {
       throw new ForbiddenException('Você não pode alterar este agendamento');
     }
     appointment.status = dto.status;
-    return this.agendamentosRepository.save(appointment);
+    try {
+      return await this.agendamentosRepository.save(appointment);
+    } catch (error) {
+      // Reactivating a cancelled appointment can collide with a newer booking.
+      this.rethrowAppointmentConflict(error);
+      throw error;
+    }
   }
 
   async createReview(
@@ -136,11 +188,14 @@ export class AppointmentsService {
     requesterId: number,
     requesterType: string,
   ) {
-    if (requesterType !== 'ADMIN' && requesterType !== 'CLIENTE')
-      throw new ForbiddenException('Apenas clientes podem avaliar');
+    if (requesterType !== 'ADMIN' && requesterType !== 'CLIENTE' && requesterType !== 'PRESTADOR')
+      throw new ForbiddenException('Tipo de conta não pode avaliar');
     const appointment = await this.requireAppointment(id_agendamento);
     if (requesterType !== 'ADMIN' && appointment.id_cliente !== requesterId)
       throw new ForbiddenException('Você só pode avaliar seus agendamentos');
+    if (appointment.status !== 'CONCLUIDO') {
+      throw new ConflictException('Só é possível avaliar agendamentos concluídos');
+    }
     const existing = await this.avaliacoesRepository.findOne({ where: { id_agendamento } });
     if (existing) throw new ConflictException('Este agendamento já foi avaliado');
     return this.avaliacoesRepository.save(
@@ -184,7 +239,8 @@ export class AppointmentsService {
   private requireReviewOwner(appointment: Agendamento, requesterId: number, requesterType: string) {
     if (
       requesterType !== 'ADMIN' &&
-      (requesterType !== 'CLIENTE' || appointment.id_cliente !== requesterId)
+      (appointment.id_cliente !== requesterId ||
+        (requesterType !== 'CLIENTE' && requesterType !== 'PRESTADOR'))
     ) {
       throw new ForbiddenException('Apenas o cliente do agendamento pode gerenciar a avaliação');
     }

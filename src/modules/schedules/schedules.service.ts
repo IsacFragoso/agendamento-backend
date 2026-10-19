@@ -15,6 +15,9 @@ import { Agendamento } from '../appointments/entities/agendamento.entity';
 import { ProviderAvailabilityQueryDto } from './dto/provider-availability-query.dto';
 import { getPostgresErrorCode } from '../../common/utils/database-error.util';
 
+// Provider schedules are wall-clock times in São Paulo. Brazil has no DST since 2019, so the offset is fixed.
+const SAO_PAULO_OFFSET = '-03:00';
+
 @Injectable()
 export class SchedulesService {
   constructor(
@@ -52,8 +55,9 @@ export class SchedulesService {
 
     const date = new Date(`${query.data}T00:00:00.000Z`);
     if (Number.isNaN(date.getTime())) throw new BadRequestException('Data inválida');
+    // The weekday is the calendar day of the requested date, independent of time zone.
     const weekday = date.getUTCDay();
-    const dayStart = date;
+    const dayStart = new Date(`${query.data}T00:00:00${SAO_PAULO_OFFSET}`);
     const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
     const schedule = await this.horariosRepository.find({
       where: { id_prestador, dia_semana: weekday },
@@ -68,7 +72,10 @@ export class SchedulesService {
       .getMany();
 
     const now = Date.now();
-    const slots = new Set<string>();
+    const slots = new Map<
+      string,
+      { hora: string; inicio: string; fim: string; disponivel: boolean }
+    >();
     const duration = Number(service.duracao_padrao);
 
     schedule.forEach((interval) => {
@@ -82,19 +89,22 @@ export class SchedulesService {
         const end = new Date(start.getTime() + duration * 60_000);
         if (start.getTime() <= now) continue;
 
-        const overlaps = bookings.some((booking) => (
-          new Date(booking.data_hora_inicio).getTime() < end.getTime() &&
-          new Date(booking.data_hora_fim).getTime() > start.getTime()
-        ));
-        if (!overlaps) {
-          slots.add(
-            `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`,
-          );
-        }
+        const hora = `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
+        const taken = bookings.some(
+          (booking) =>
+            new Date(booking.data_hora_inicio).getTime() < end.getTime() &&
+            new Date(booking.data_hora_fim).getTime() > start.getTime(),
+        );
+        slots.set(hora, {
+          hora,
+          inicio: start.toISOString(),
+          fim: end.toISOString(),
+          disponivel: !taken,
+        });
       }
     });
 
-    return [...slots].sort();
+    return [...slots.values()].sort((a, b) => a.hora.localeCompare(b.hora));
   }
 
   async update(

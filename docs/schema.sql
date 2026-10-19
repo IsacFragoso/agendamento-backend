@@ -1,6 +1,8 @@
 -- Canonical schema for the current NestJS/TypeORM model.
 -- Existing deployments must be upgraded with reviewed TypeORM migrations, not this bootstrap DDL.
 
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
 CREATE TABLE "usuario" (
     "id_usuario" SERIAL PRIMARY KEY,
     "nome_completo" varchar(255) NOT NULL,
@@ -18,6 +20,8 @@ CREATE TABLE "perfil_prestador" (
     "latitude" decimal(10,8),
     "longitude" decimal(11,8),
     "bio" text,
+    "cidade" varchar(100),
+    "estado" varchar(2),
     "imagem_banner" text,
     CONSTRAINT "FK_perfil_prestador_usuario" FOREIGN KEY ("id_usuario")
         REFERENCES "usuario"("id_usuario") ON DELETE CASCADE
@@ -72,6 +76,12 @@ CREATE TABLE "agendamento" (
     CONSTRAINT "CK_agendamento_intervalo" CHECK ("data_hora_fim" > "data_hora_inicio"),
     CONSTRAINT "CK_agendamento_status"
         CHECK ("status" IN ('PENDENTE', 'CONFIRMADO', 'CANCELADO', 'CONCLUIDO')),
+    CONSTRAINT "EX_agendamento_prestador_sem_sobreposicao"
+        EXCLUDE USING gist ("id_prestador" WITH =, tsrange("data_hora_inicio", "data_hora_fim") WITH &&)
+        WHERE ("status" <> 'CANCELADO'),
+    CONSTRAINT "EX_agendamento_cliente_sem_sobreposicao"
+        EXCLUDE USING gist ("id_cliente" WITH =, tsrange("data_hora_inicio", "data_hora_fim") WITH &&)
+        WHERE ("status" <> 'CANCELADO'),
     CONSTRAINT "FK_agendamento_cliente" FOREIGN KEY ("id_cliente")
         REFERENCES "usuario"("id_usuario"),
     CONSTRAINT "FK_agendamento_prestador" FOREIGN KEY ("id_prestador")

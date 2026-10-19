@@ -21,6 +21,13 @@ export async function createTestApp() {
     create: jest.fn().mockResolvedValue({ id_usuario: 7, email: 'client@example.com' }),
     findAll: jest.fn().mockResolvedValue([]),
     findPublicProvider: jest.fn().mockResolvedValue({ id_prestador: 8, servicos: [] }),
+    findPublicProviderReviews: jest.fn().mockResolvedValue({
+      avaliacoes: [],
+      media_avaliacoes: null,
+      total_avaliacoes: 0,
+      pagina: 1,
+      limite: 10,
+    }),
     findOne: jest.fn().mockResolvedValue({ id_usuario: 7 }),
     update: jest.fn().mockResolvedValue({ id_usuario: 7 }),
     remove: jest.fn().mockResolvedValue({ message: 'Dados pessoais removidos com sucesso' }),
@@ -38,7 +45,14 @@ export async function createTestApp() {
     remove: jest.fn().mockResolvedValue({ message: 'Serviço removido com sucesso' }),
   };
   const schedulesService = {
-    getAvailableSlots: jest.fn().mockResolvedValue(['09:00']),
+    getAvailableSlots: jest.fn().mockResolvedValue([
+      {
+        hora: '09:00',
+        inicio: '2026-10-13T12:00:00.000Z',
+        fim: '2026-10-13T13:00:00.000Z',
+        disponivel: true,
+      },
+    ]),
     findByProvider: jest.fn().mockResolvedValue({ id_prestador: 7 }),
     update: jest.fn().mockResolvedValue({ id_prestador: 7 }),
     clear: jest.fn().mockResolvedValue({ id_prestador: 7 }),
