@@ -19,8 +19,11 @@ import { BecomeProviderDto } from './dto/become-provider.dto';
 import { UpsertPerfilPrestadorDto } from './dto/upsert-perfil-prestador.dto';
 import { SearchPrestadoresDto } from './dto/search-prestadores.dto';
 import { isValidPhoneNumber, sanitizePhoneNumber } from '../../common/utils/phone.util';
+import { getPostgresErrorCode } from '../../common/utils/database-error.util';
 import { CloudinaryService, UploadedImageFile } from '../../common/storage/cloudinary.service';
 import { DistanceUtilService } from '../../common/utils/distance.util';
+import { Avaliacao } from '../appointments/entities/avaliacao.entity';
+import { ListProviderReviewsDto } from './dto/list-provider-reviews.dto';
 
 @Injectable()
 export class UsersService {
@@ -29,6 +32,9 @@ export class UsersService {
     private readonly usuariosRepository: Repository<Usuario>,
     @InjectRepository(PerfilPrestador)
     private readonly perfisRepository: Repository<PerfilPrestador>,
+    @Optional()
+    @InjectRepository(Avaliacao)
+    private readonly avaliacoesRepository?: Repository<Avaliacao>,
     @Optional() private readonly distanceUtil?: DistanceUtilService,
     @Optional() private readonly cloudinaryService?: CloudinaryService,
   ) {}
@@ -56,7 +62,15 @@ export class UsersService {
       tipo_conta: 'CLIENTE',
       senha_hash: await bcryptjs.hash(dto.senha, 10),
     });
-    const saved = await this.usuariosRepository.save(usuario);
+    let saved: Usuario;
+    try {
+      saved = await this.usuariosRepository.save(usuario);
+    } catch (error) {
+      if (getPostgresErrorCode(error) === '23505') {
+        throw new ConflictException('E-mail já cadastrado');
+      }
+      throw error;
+    }
 
     return this.withoutPassword(saved);
   }
@@ -67,6 +81,111 @@ export class UsersService {
       relations: { perfil_prestador: true },
     });
     return usuarios.map((usuario) => this.withoutPassword(usuario));
+  }
+
+  async findPublicProvider(id: number) {
+    const provider = await this.usuariosRepository.findOne({
+      where: { id_usuario: id, tipo_conta: 'PRESTADOR', deleted_at: IsNull() },
+      relations: { perfil_prestador: { servicos: { categoria: true } } },
+    });
+
+    if (!provider?.perfil_prestador) {
+      throw new NotFoundException('Prestador não encontrado');
+    }
+
+    return {
+      id_prestador: provider.id_usuario,
+      nome_completo: provider.nome_completo,
+      perfil: {
+        foto_perfil: provider.foto_perfil,
+        bio: provider.perfil_prestador.bio,
+        imagem_banner: provider.perfil_prestador.imagem_banner,
+        cidade: provider.perfil_prestador.cidade ?? null,
+        estado: provider.perfil_prestador.estado ?? null,
+      },
+      servicos: (provider.perfil_prestador.servicos ?? [])
+        .filter((service) => service.ativo)
+        .map((service) => ({
+          id_servico: service.id_servico,
+          titulo: service.titulo,
+          descricao: service.descricao,
+          preco: service.preco == null ? null : Number(service.preco),
+          duracao_padrao: service.duracao_padrao,
+          categoria: service.categoria
+            ? { id_categoria: service.categoria.id_categoria, nome: service.categoria.nome }
+            : null,
+        })),
+    };
+  }
+
+  async findPublicProviderReviews(id: number, dto: ListProviderReviewsDto) {
+    const provider = await this.usuariosRepository.findOne({
+      where: { id_usuario: id, tipo_conta: 'PRESTADOR', deleted_at: IsNull() },
+      select: { id_usuario: true },
+    });
+    if (!provider) {
+      throw new NotFoundException('Prestador não encontrado');
+    }
+
+    const reviewsRepository = this.avaliacoesRepository;
+    if (!reviewsRepository) {
+      throw new Error('Repositórios de avaliações não estão configurados');
+    }
+
+    const pagina = dto.pagina ?? 1;
+    const limite = dto.limite ?? 10;
+    const [reviews, total] = await reviewsRepository
+      .createQueryBuilder('avaliacao')
+      .innerJoin('avaliacao.agendamento', 'agendamento')
+      .select([
+        'avaliacao.id_avaliacao',
+        'avaliacao.nota_estrelas',
+        'avaliacao.comentario',
+        'avaliacao.data',
+      ])
+      .where('agendamento.id_prestador = :id', { id })
+      .orderBy('avaliacao.data', 'DESC')
+      .addOrderBy('avaliacao.id_avaliacao', 'DESC')
+      .skip((pagina - 1) * limite)
+      .take(limite)
+      .getManyAndCount();
+
+    const average = await reviewsRepository
+      .createQueryBuilder('avaliacao')
+      .innerJoin('avaliacao.agendamento', 'agendamento')
+      .select('AVG(avaliacao.nota_estrelas)', 'media')
+      .where('agendamento.id_prestador = :id', { id })
+      .getRawOne<{ media: string | null }>();
+
+    return {
+      avaliacoes: reviews.map((review) => ({
+        avaliador: 'Cliente',
+        nota_estrelas: review.nota_estrelas,
+        comentario: review.comentario,
+        data: review.data,
+      })),
+      media_avaliacoes: average?.media == null ? null : Number(average.media),
+      total_avaliacoes: total,
+      pagina,
+      limite,
+    };
+  }
+
+  async findProviderContacts(id: number) {
+    const provider = await this.usuariosRepository.findOne({
+      where: { id_usuario: id, tipo_conta: 'PRESTADOR', deleted_at: IsNull() },
+      select: { id_usuario: true, email: true, telefone: true },
+    });
+
+    if (!provider) {
+      throw new NotFoundException('Prestador não encontrado');
+    }
+
+    return {
+      id_prestador: provider.id_usuario,
+      email: provider.email,
+      telefone: provider.telefone,
+    };
   }
 
   async searchProviders(dto: SearchPrestadoresDto) {
@@ -112,6 +231,8 @@ export class UsersService {
         'perfil.latitude',
         'perfil.longitude',
         'perfil.bio',
+        'perfil.cidade',
+        'perfil.estado',
         'perfil.imagem_banner',
         'servico.id_servico',
         'servico.titulo',
@@ -124,35 +245,37 @@ export class UsersService {
       .getMany();
 
     return providers.map((provider) => {
-      const services = (provider.servicos ?? provider.perfil_prestador?.servicos) ?? [];
-      return ({
-      id_prestador: provider.id_usuario,
-      nome_completo: provider.nome_completo,
-      distancia_km:
-        hasLatitude && hasLongitude
-          ? this.distanceUtil?.calcularDistanciaKm(
-              dto.latitude!,
-              dto.longitude!,
-              Number(provider.perfil_prestador?.latitude),
-              Number(provider.perfil_prestador?.longitude),
-            )
+      const services = provider.servicos ?? provider.perfil_prestador?.servicos ?? [];
+      return {
+        id_prestador: provider.id_usuario,
+        nome_completo: provider.nome_completo,
+        distancia_km:
+          hasLatitude && hasLongitude
+            ? this.distanceUtil?.calcularDistanciaKm(
+                dto.latitude!,
+                dto.longitude!,
+                Number(provider.perfil_prestador?.latitude),
+                Number(provider.perfil_prestador?.longitude),
+              )
+            : null,
+        perfil: provider.perfil_prestador
+          ? {
+              foto_perfil: provider.foto_perfil,
+              bio: provider.perfil_prestador.bio,
+              imagem_banner: provider.perfil_prestador.imagem_banner,
+              cidade: provider.perfil_prestador.cidade ?? null,
+              estado: provider.perfil_prestador.estado ?? null,
+            }
           : null,
-      perfil: provider.perfil_prestador
-        ? {
-            foto_perfil: provider.foto_perfil,
-            bio: provider.perfil_prestador.bio,
-            imagem_banner: provider.perfil_prestador.imagem_banner,
-          }
-        : null,
-      servicos: services.map((service) => ({
-        id_servico: service.id_servico,
-        titulo: service.titulo,
-        descricao: service.descricao,
-        preco: service.preco == null ? null : Number(service.preco),
-        duracao_padrao: service.duracao_padrao,
-        categoria: service.categoria,
-      })),
-    });
+        servicos: services.map((service) => ({
+          id_servico: service.id_servico,
+          titulo: service.titulo,
+          descricao: service.descricao,
+          preco: service.preco == null ? null : Number(service.preco),
+          duracao_padrao: service.duracao_padrao,
+          categoria: service.categoria,
+        })),
+      };
     });
   }
 
@@ -245,6 +368,8 @@ export class UsersService {
         bio: dto.bio,
         latitude: dto.latitude ?? null,
         longitude: dto.longitude ?? null,
+        cidade: dto.cidade ?? null,
+        estado: dto.estado ?? null,
       });
       await perfilRepository.save(perfil);
 

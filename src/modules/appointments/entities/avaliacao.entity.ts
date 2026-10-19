@@ -1,7 +1,8 @@
-import { Column, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Check, Column, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Agendamento } from './agendamento.entity';
 
 @Entity('avaliacao')
+@Check('CK_avaliacao_nota', '"nota_estrelas" BETWEEN 1 AND 5')
 export class Avaliacao {
   @PrimaryGeneratedColumn({ name: 'id_avaliacao' })
   id_avaliacao: number;

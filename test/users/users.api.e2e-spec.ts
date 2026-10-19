@@ -27,6 +27,22 @@ describe('Users API', () => {
     });
   });
 
+  it('returns public provider details by id', async () => {
+    await request(context.app.getHttpServer()).get('/prestadores/8').expect(200);
+    expect(context.usersService.findPublicProvider).toHaveBeenCalledWith(8);
+  });
+
+  it('returns provider reviews publicly with pagination parameters', async () => {
+    context.setAuthenticated(false);
+    await request(context.app.getHttpServer())
+      .get('/prestadores/8/avaliacoes?pagina=2&limite=5')
+      .expect(200);
+    expect(context.usersService.findPublicProviderReviews).toHaveBeenCalledWith(8, {
+      pagina: '2',
+      limite: '5',
+    });
+  });
+
   it('rejects protected routes without authentication', async () => {
     context.setAuthenticated(false);
     await request(context.app.getHttpServer()).get('/usuarios/7').expect(401);

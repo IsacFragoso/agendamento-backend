@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Query,
   Put,
   Req,
   UseGuards,
@@ -12,11 +13,20 @@ import {
 import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/strategies/jwt-auth.guard';
 import { UpdateHorarioDto } from './dto/update-horario.dto';
+import { ProviderAvailabilityQueryDto } from './dto/provider-availability-query.dto';
 import { SchedulesService } from './schedules.service';
 
 @Controller('prestadores/:id/horario')
 export class SchedulesController {
   constructor(private readonly schedulesService: SchedulesService) {}
+
+  @Get('disponibilidade')
+  getAvailability(
+    @Param('id', ParseIntPipe) id: number,
+    @Query() query: ProviderAvailabilityQueryDto,
+  ) {
+    return this.schedulesService.getAvailableSlots(id, query);
+  }
 
   @Get()
   find(@Param('id', ParseIntPipe) id: number) {

@@ -14,6 +14,7 @@ import { CreateServicoDto } from './dto/create-servico.dto';
 import { UpdateServicoDto } from './dto/update-servico.dto';
 import { UpdateCategoriaDto } from './dto/update-categoria.dto';
 import { PerfilPrestador } from '../users/entities/perfil-prestador.entity';
+import { getPostgresErrorCode } from '../../common/utils/database-error.util';
 
 @Injectable()
 export class ServicesService {
@@ -29,7 +30,14 @@ export class ServicesService {
   async createCategory(dto: CreateCategoriaDto) {
     const existing = await this.categoriasRepository.findOne({ where: { nome: dto.nome } });
     if (existing) throw new ConflictException('Categoria já cadastrada');
-    return this.categoriasRepository.save(this.categoriasRepository.create(dto));
+    try {
+      return await this.categoriasRepository.save(this.categoriasRepository.create(dto));
+    } catch (error) {
+      if (getPostgresErrorCode(error) === '23505') {
+        throw new ConflictException('Categoria já cadastrada');
+      }
+      throw error;
+    }
   }
 
   findCategories() {
@@ -49,7 +57,14 @@ export class ServicesService {
     const category = await this.requireCategory(id);
     const servicesCount = await this.servicosRepository.count({ where: { id_categoria: id } });
     if (servicesCount > 0) throw new ConflictException('Categoria possui serviços vinculados');
-    await this.categoriasRepository.remove(category);
+    try {
+      await this.categoriasRepository.remove(category);
+    } catch (error) {
+      if (getPostgresErrorCode(error) === '23503') {
+        throw new ConflictException('Categoria possui serviços vinculados');
+      }
+      throw error;
+    }
     return { message: 'Categoria removida com sucesso' };
   }
 
@@ -78,12 +93,18 @@ export class ServicesService {
     try {
       return await this.servicosRepository.save(servico);
     } catch (error) {
+      if (getPostgresErrorCode(error) === '23503') {
+        throw new ConflictException('Prestador ou categoria não está mais disponível');
+      }
       throw new BadRequestException('Não foi possível cadastrar o serviço');
     }
   }
 
   findAll() {
-    return this.servicosRepository.find({ relations: { categoria: true, prestador: true } });
+    return this.servicosRepository.find({
+      where: { ativo: true },
+      relations: { categoria: true, prestador: true },
+    });
   }
 
   async findByProvider(id_prestador: number) {
@@ -115,8 +136,9 @@ export class ServicesService {
     this.requireProvider(requesterType);
     const servico = await this.requireService(id);
     if (requesterType !== 'ADMIN') this.requireOwnership(servico.id_prestador, requesterId);
-    await this.servicosRepository.remove(servico);
-    return { message: 'Serviço removido com sucesso' };
+    servico.ativo = false;
+    await this.servicosRepository.save(servico);
+    return { message: 'Serviço arquivado com sucesso' };
   }
 
   private async requireProfile(id: number) {

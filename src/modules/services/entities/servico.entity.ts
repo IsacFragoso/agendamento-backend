@@ -1,9 +1,21 @@
-import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Check,
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  Unique,
+} from 'typeorm';
 import { PerfilPrestador } from '../../users/entities/perfil-prestador.entity';
 import { Categoria } from './categoria.entity';
 import { Agendamento } from '../../appointments/entities/agendamento.entity';
 
 @Entity('servico')
+@Check('CK_servico_preco_nonnegative', '"preco" >= 0')
+@Check('CK_servico_duracao_positive', '"duracao_padrao" > 0')
+@Unique('UQ_servico_id_prestador', ['id_servico', 'id_prestador'])
 export class Servico {
   @PrimaryGeneratedColumn({ name: 'id_servico' })
   id_servico: number;

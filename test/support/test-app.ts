@@ -9,6 +9,7 @@ import { ServicesService } from '../../src/modules/services/services.service';
 import { SchedulesController } from '../../src/modules/schedules/schedules.controller';
 import { SchedulesService } from '../../src/modules/schedules/schedules.service';
 import { UsersController } from '../../src/modules/users/users.controller';
+import { ProvidersController } from '../../src/modules/users/providers.controller';
 import { UsersService } from '../../src/modules/users/users.service';
 
 export type TestUser = { sub: number; tipo_conta: string };
@@ -19,6 +20,14 @@ export async function createTestApp() {
   const usersService = {
     create: jest.fn().mockResolvedValue({ id_usuario: 7, email: 'client@example.com' }),
     findAll: jest.fn().mockResolvedValue([]),
+    findPublicProvider: jest.fn().mockResolvedValue({ id_prestador: 8, servicos: [] }),
+    findPublicProviderReviews: jest.fn().mockResolvedValue({
+      avaliacoes: [],
+      media_avaliacoes: null,
+      total_avaliacoes: 0,
+      pagina: 1,
+      limite: 10,
+    }),
     findOne: jest.fn().mockResolvedValue({ id_usuario: 7 }),
     update: jest.fn().mockResolvedValue({ id_usuario: 7 }),
     remove: jest.fn().mockResolvedValue({ message: 'Dados pessoais removidos com sucesso' }),
@@ -36,6 +45,14 @@ export async function createTestApp() {
     remove: jest.fn().mockResolvedValue({ message: 'Serviço removido com sucesso' }),
   };
   const schedulesService = {
+    getAvailableSlots: jest.fn().mockResolvedValue([
+      {
+        hora: '09:00',
+        inicio: '2026-10-13T12:00:00.000Z',
+        fim: '2026-10-13T13:00:00.000Z',
+        disponivel: true,
+      },
+    ]),
     findByProvider: jest.fn().mockResolvedValue({ id_prestador: 7 }),
     update: jest.fn().mockResolvedValue({ id_prestador: 7 }),
     clear: jest.fn().mockResolvedValue({ id_prestador: 7 }),
@@ -54,7 +71,13 @@ export async function createTestApp() {
   };
 
   const moduleRef = await Test.createTestingModule({
-    controllers: [UsersController, ServicesController, SchedulesController, AppointmentsController],
+    controllers: [
+      UsersController,
+      ProvidersController,
+      ServicesController,
+      SchedulesController,
+      AppointmentsController,
+    ],
     providers: [
       { provide: UsersService, useValue: usersService },
       { provide: ServicesService, useValue: servicesService },
