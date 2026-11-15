@@ -6,7 +6,9 @@ export class AddAppointmentFeedbackAndSuggestions1792500000000 implements Migrat
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query('ALTER TABLE "agendamento" ADD "motivo_cancelamento" text');
     await queryRunner.query('ALTER TABLE "agendamento" ADD "cancelado_por" character varying(20)');
-    await queryRunner.query('ALTER TABLE "avaliacao" ADD "avaliador_tipo" character varying(20) NOT NULL DEFAULT \'CLIENTE\'');
+    await queryRunner.query(
+      'ALTER TABLE "avaliacao" ADD "avaliador_tipo" character varying(20) NOT NULL DEFAULT \'CLIENTE\'',
+    );
     await queryRunner.query('ALTER TABLE "avaliacao" DROP CONSTRAINT "UQ_avaliacao_agendamento"');
     await queryRunner.query(
       'ALTER TABLE "avaliacao" ADD CONSTRAINT "CK_avaliacao_avaliador_tipo" CHECK ("avaliador_tipo" IN (\'CLIENTE\', \'PRESTADOR\'))',
@@ -65,8 +67,12 @@ export class AddAppointmentFeedbackAndSuggestions1792500000000 implements Migrat
     await queryRunner.query('DROP TABLE "password_reset_token"');
     await queryRunner.query('DROP INDEX "IDX_sugestao_prestador_data"');
     await queryRunner.query('DROP TABLE "sugestao_prestador"');
-    await queryRunner.query('ALTER TABLE "avaliacao" DROP CONSTRAINT "UQ_avaliacao_agendamento_avaliador"');
-    await queryRunner.query('ALTER TABLE "avaliacao" DROP CONSTRAINT "CK_avaliacao_avaliador_tipo"');
+    await queryRunner.query(
+      'ALTER TABLE "avaliacao" DROP CONSTRAINT "UQ_avaliacao_agendamento_avaliador"',
+    );
+    await queryRunner.query(
+      'ALTER TABLE "avaliacao" DROP CONSTRAINT "CK_avaliacao_avaliador_tipo"',
+    );
     await queryRunner.query('ALTER TABLE "avaliacao" DROP COLUMN "avaliador_tipo"');
     await queryRunner.query(
       'ALTER TABLE "avaliacao" ADD CONSTRAINT "UQ_avaliacao_agendamento" UNIQUE ("id_agendamento")',

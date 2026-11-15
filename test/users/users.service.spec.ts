@@ -123,15 +123,9 @@ describe('UsersService', () => {
     const usersRepository = {
       findOne: jest.fn().mockResolvedValue({ id_usuario: 4 }),
     };
-    const service = new UsersService(
-      usersRepository as any,
-      {} as any,
-      reviewsRepository as any,
-    );
+    const service = new UsersService(usersRepository as any, {} as any, reviewsRepository as any);
 
-    await expect(
-      service.findPublicProviderReviews(4, { pagina: 2, limite: 5 }),
-    ).resolves.toEqual({
+    await expect(service.findPublicProviderReviews(4, { pagina: 2, limite: 5 })).resolves.toEqual({
       avaliacoes: [
         {
           avaliador: 'Cliente',
@@ -209,12 +203,14 @@ describe('UsersService', () => {
     };
     const service = new UsersService(usuarioRepository as any, {} as any);
 
-    await expect(service.create({
-      nome_completo: 'Cliente',
-      email: 'client@example.com',
-      telefone: '11999998888',
-      senha: 'password123',
-    })).rejects.toBeInstanceOf(ConflictException);
+    await expect(
+      service.create({
+        nome_completo: 'Cliente',
+        email: 'client@example.com',
+        telefone: '11999998888',
+        senha: 'password123',
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('creates regular users from email when signup omits a name and account type', async () => {

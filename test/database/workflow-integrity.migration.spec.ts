@@ -2,11 +2,13 @@ import { AddWorkflowIntegrityConstraints1791417600000 } from '../../src/database
 
 describe('AddWorkflowIntegrityConstraints migration', () => {
   it('stops before DDL when historical appointments mismatch their service provider', async () => {
-    const query = jest.fn().mockImplementation(async (sql: string) => (
-      sql.includes('appointment."id_prestador" <> service."id_prestador"')
-        ? [{ id_agendamento: 42 }]
-        : []
-    ));
+    const query = jest
+      .fn()
+      .mockImplementation(async (sql: string) =>
+        sql.includes('appointment."id_prestador" <> service."id_prestador"')
+          ? [{ id_agendamento: 42 }]
+          : [],
+      );
 
     await expect(
       new AddWorkflowIntegrityConstraints1791417600000().up({ query } as any),

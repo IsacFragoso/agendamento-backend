@@ -161,9 +161,9 @@ describe('AppointmentsService', () => {
       mocks.services as any,
     );
 
-    await expect(
-      service.createReview(1, { nota_estrelas: 5 }, 7, 'CLIENTE'),
-    ).rejects.toThrow('Só é possível avaliar agendamentos concluídos');
+    await expect(service.createReview(1, { nota_estrelas: 5 }, 7, 'CLIENTE')).rejects.toThrow(
+      'Só é possível avaliar agendamentos concluídos',
+    );
     expect(mocks.reviews.save).not.toHaveBeenCalled();
   });
 
@@ -183,9 +183,7 @@ describe('AppointmentsService', () => {
       mocks.services as any,
     );
 
-    await expect(
-      service.createReview(1, { nota_estrelas: 5 }, 7, 'CLIENTE'),
-    ).resolves.toEqual({
+    await expect(service.createReview(1, { nota_estrelas: 5 }, 7, 'CLIENTE')).resolves.toEqual({
       nota_estrelas: 5,
       id_agendamento: 1,
       avaliador_tipo: 'CLIENTE',
@@ -209,9 +207,7 @@ describe('AppointmentsService', () => {
       mocks.services as any,
     );
 
-    await expect(
-      service.createReview(1, { nota_estrelas: 4 }, 12, 'PRESTADOR'),
-    ).resolves.toEqual({
+    await expect(service.createReview(1, { nota_estrelas: 4 }, 12, 'PRESTADOR')).resolves.toEqual({
       nota_estrelas: 4,
       id_agendamento: 1,
       avaliador_tipo: 'PRESTADOR',
@@ -381,16 +377,25 @@ describe('AppointmentsService', () => {
       mocks.services as any,
     );
 
-    await expect(service.create({
-      id_servico: 3,
-      data_hora_inicio: '2026-09-01T10:00:00Z',
-      data_hora_fim: '2026-09-01T11:00:00Z',
-    } as any, 7, 'CLIENTE')).rejects.toBeInstanceOf(ConflictException);
+    await expect(
+      service.create(
+        {
+          id_servico: 3,
+          data_hora_inicio: '2026-09-01T10:00:00Z',
+          data_hora_fim: '2026-09-01T11:00:00Z',
+        } as any,
+        7,
+        'CLIENTE',
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('rejects a booking that overlaps another appointment of the same client', async () => {
     const mocks = repositories();
-    const getOne = jest.fn().mockResolvedValueOnce(null).mockResolvedValueOnce({ id_agendamento: 5 });
+    const getOne = jest
+      .fn()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id_agendamento: 5 });
     mocks.appointments.createQueryBuilder.mockReturnValue({
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
@@ -404,11 +409,17 @@ describe('AppointmentsService', () => {
       mocks.services as any,
     );
 
-    await expect(service.create({
-      id_servico: 3,
-      data_hora_inicio: '2026-09-01T10:00:00Z',
-      data_hora_fim: '2026-09-01T11:00:00Z',
-    } as any, 7, 'CLIENTE')).rejects.toThrow('Você já possui um agendamento nesse horário');
+    await expect(
+      service.create(
+        {
+          id_servico: 3,
+          data_hora_inicio: '2026-09-01T10:00:00Z',
+          data_hora_fim: '2026-09-01T11:00:00Z',
+        } as any,
+        7,
+        'CLIENTE',
+      ),
+    ).rejects.toThrow('Você já possui um agendamento nesse horário');
     expect(mocks.appointments.save).not.toHaveBeenCalled();
   });
 
@@ -430,11 +441,17 @@ describe('AppointmentsService', () => {
       mocks.services as any,
     );
 
-    await expect(service.create({
-      id_servico: 3,
-      data_hora_inicio: '2026-09-01T10:00:00Z',
-      data_hora_fim: '2026-09-01T11:00:00Z',
-    } as any, 7, 'CLIENTE')).rejects.toThrow('Você já possui um agendamento nesse horário');
+    await expect(
+      service.create(
+        {
+          id_servico: 3,
+          data_hora_inicio: '2026-09-01T10:00:00Z',
+          data_hora_fim: '2026-09-01T11:00:00Z',
+        } as any,
+        7,
+        'CLIENTE',
+      ),
+    ).rejects.toThrow('Você já possui um agendamento nesse horário');
   });
 
   it('returns a conflict when reactivating a cancelled appointment overlaps another', async () => {
@@ -471,10 +488,16 @@ describe('AppointmentsService', () => {
       mocks.services as any,
     );
 
-    await expect(service.create({
-      id_servico: 3,
-      data_hora_inicio: '2026-09-01T10:00:00Z',
-      data_hora_fim: '2026-09-01T11:00:00Z',
-    } as any, 7, 'CLIENTE')).rejects.toBeInstanceOf(ConflictException);
+    await expect(
+      service.create(
+        {
+          id_servico: 3,
+          data_hora_inicio: '2026-09-01T10:00:00Z',
+          data_hora_fim: '2026-09-01T11:00:00Z',
+        } as any,
+        7,
+        'CLIENTE',
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 });

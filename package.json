@@ -12,6 +12,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
+    "test": "jest --config ./test/jest.config.js --runInBand",
     "test:api": "jest --config ./test/jest.config.js --runInBand",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "migration:run": "npm.cmd run build && typeorm migration:run -d dist/database/data-source.js",

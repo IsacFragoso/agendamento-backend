@@ -209,18 +209,23 @@ export class UsersService {
     if (!repository) throw new Error('Repositório de sugestões não está configurado');
     await this.findPublicProvider(providerId);
     const suggestion = dto.sugestao.trim();
-    if (suggestion.length < 2) throw new BadRequestException('A sugestão deve ter pelo menos 2 caracteres');
-    return repository.save(repository.create({
-      id_prestador: providerId,
-      id_remetente: senderId,
-      remetente_tipo: senderType,
-      sugestao: suggestion,
-    }));
+    if (suggestion.length < 2)
+      throw new BadRequestException('A sugestão deve ter pelo menos 2 caracteres');
+    return repository.save(
+      repository.create({
+        id_prestador: providerId,
+        id_remetente: senderId,
+        remetente_tipo: senderType,
+        sugestao: suggestion,
+      }),
+    );
   }
 
   async findProviderSuggestions(providerId: number, requesterId: number, requesterType: string) {
     if (requesterType !== 'PRESTADOR' || providerId !== requesterId) {
-      throw new ForbiddenException('Apenas o profissional pode visualizar suas sugestões recebidas');
+      throw new ForbiddenException(
+        'Apenas o profissional pode visualizar suas sugestões recebidas',
+      );
     }
     const repository = this.sugestoesRepository;
     if (!repository) throw new Error('Repositório de sugestões não está configurado');

@@ -10,7 +10,9 @@ describe('ServicesService', () => {
     };
     const service = new ServicesService(categoriesRepository as any, {} as any, {} as any);
 
-    await expect(service.createCategory({ nome: 'Beleza' })).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.createCategory({ nome: 'Beleza' })).rejects.toBeInstanceOf(
+      ConflictException,
+    );
   });
 
   it('rejects service creation by a client', async () => {

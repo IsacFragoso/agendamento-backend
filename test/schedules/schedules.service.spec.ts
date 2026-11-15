@@ -15,11 +15,18 @@ describe('SchedulesService', () => {
       {} as any,
     );
 
-    await expect(service.update(7, {
-      dia_semana: 2,
-      horario_inicio: '08:00',
-      horario_fim: '12:00',
-    }, 7, 'PRESTADOR')).resolves.toBe(existing);
+    await expect(
+      service.update(
+        7,
+        {
+          dia_semana: 2,
+          horario_inicio: '08:00',
+          horario_fim: '12:00',
+        },
+        7,
+        'PRESTADOR',
+      ),
+    ).resolves.toBe(existing);
     expect(horariosRepository.save).not.toHaveBeenCalled();
   });
 

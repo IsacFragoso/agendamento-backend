@@ -199,11 +199,7 @@ export class AppointmentsService {
     appointment.motivo_cancelamento =
       dto.status === 'CANCELADO' ? dto.motivo_cancelamento!.trim() : null;
     appointment.cancelado_por =
-      dto.status === 'CANCELADO'
-        ? requesterType === 'ADMIN'
-          ? 'SISTEMA'
-          : requesterType
-        : null;
+      dto.status === 'CANCELADO' ? (requesterType === 'ADMIN' ? 'SISTEMA' : requesterType) : null;
     try {
       return await this.agendamentosRepository.save(appointment);
     } catch (error) {
@@ -292,7 +288,8 @@ export class AppointmentsService {
     requesterType: string,
   ): 'CLIENTE' | 'PRESTADOR' | null {
     if (requesterType === 'CLIENTE' && appointment.id_cliente === requesterId) return 'CLIENTE';
-    if (requesterType === 'PRESTADOR' && appointment.id_prestador === requesterId) return 'PRESTADOR';
+    if (requesterType === 'PRESTADOR' && appointment.id_prestador === requesterId)
+      return 'PRESTADOR';
     if (requesterType === 'PRESTADOR' && appointment.id_cliente === requesterId) return 'CLIENTE';
     return null;
   }
@@ -305,7 +302,9 @@ export class AppointmentsService {
     if (requesterType === 'ADMIN') return 'CLIENTE';
     const evaluatorType = this.getEvaluatorType(appointment, requesterId, requesterType);
     if (!evaluatorType) {
-      throw new ForbiddenException('Apenas participantes do agendamento podem visualizar avaliações');
+      throw new ForbiddenException(
+        'Apenas participantes do agendamento podem visualizar avaliações',
+      );
     }
     return evaluatorType;
   }

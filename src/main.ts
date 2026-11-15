@@ -7,10 +7,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
 
-  const frontendUrl = configService.get<string>(
-    'FRONTEND_URL',
-    'http://localhost:5173',
-  );
+  const frontendUrl = configService.get<string>('FRONTEND_URL', 'http://localhost:5173');
   const allowedOrigins = [new URL(frontendUrl).origin];
   if (configService.get<string>('NODE_ENV') !== 'production') {
     allowedOrigins.push('http://localhost:5173');

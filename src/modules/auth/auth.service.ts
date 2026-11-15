@@ -92,14 +92,18 @@ export class AuthService {
     const password = config?.get<string>('MAIL_PASSWORD');
     const from = config?.get<string>('MAIL_FROM') || user;
     if (!host || !user || !password || !from) {
-      throw new ServiceUnavailableException('A recuperação de senha por e-mail não está configurada');
+      throw new ServiceUnavailableException(
+        'A recuperação de senha por e-mail não está configurada',
+      );
     }
 
     const usuario = await this.usuariosRepository.findOne({
       where: { email: dto.email.trim().toLowerCase(), deleted_at: IsNull() },
     });
     if (!usuario) {
-      return { message: 'Se o e-mail estiver cadastrado, você receberá instruções para redefinir a senha.' };
+      return {
+        message: 'Se o e-mail estiver cadastrado, você receberá instruções para redefinir a senha.',
+      };
     }
 
     const resetTokens = this.resetTokensRepository;
@@ -112,12 +116,14 @@ export class AuthService {
     );
 
     const token = randomBytes(32).toString('hex');
-    await resetTokens.save(resetTokens.create({
-      id_usuario: usuario.id_usuario,
-      token_hash: createHash('sha256').update(token).digest('hex'),
-      expires_at: new Date(Date.now() + 60 * 60 * 1000),
-      used_at: null,
-    }));
+    await resetTokens.save(
+      resetTokens.create({
+        id_usuario: usuario.id_usuario,
+        token_hash: createHash('sha256').update(token).digest('hex'),
+        expires_at: new Date(Date.now() + 60 * 60 * 1000),
+        used_at: null,
+      }),
+    );
 
     const port = Number(config?.get('MAIL_PORT', 587));
     const secure = config?.get<string>('MAIL_SECURE') === 'true';
@@ -136,7 +142,9 @@ export class AuthService {
       text: `Use este link para redefinir sua senha. Ele expira em 1 hora: ${resetUrl}`,
       html: `<p>Use o link abaixo para redefinir sua senha. Ele expira em 1 hora.</p><p><a href="${resetUrl}">Redefinir senha</a></p>`,
     });
-    return { message: 'Se o e-mail estiver cadastrado, você receberá instruções para redefinir a senha.' };
+    return {
+      message: 'Se o e-mail estiver cadastrado, você receberá instruções para redefinir a senha.',
+    };
   }
 
   async resetPassword(dto: ResetPasswordDto) {
