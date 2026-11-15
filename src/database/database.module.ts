@@ -9,6 +9,8 @@ import { Agendamento } from '../modules/appointments/entities/agendamento.entity
 import { Avaliacao } from '../modules/appointments/entities/avaliacao.entity';
 import { Horario } from '../modules/schedules/entities/horario.entity';
 import { RevokedToken } from '../modules/auth/entities/revoked-token.entity';
+import { PasswordResetToken } from '../modules/auth/entities/password-reset-token.entity';
+import { SugestaoPrestador } from '../modules/users/entities/sugestao.entity';
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { RevokedToken } from '../modules/auth/entities/revoked-token.entity';
           Avaliacao,
           Horario,
           RevokedToken,
+          PasswordResetToken,
+          SugestaoPrestador,
         ],
         migrations: [__dirname + '/migrations/*.{js,ts}'],
         synchronize: false,

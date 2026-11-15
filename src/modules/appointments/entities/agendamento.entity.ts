@@ -4,7 +4,7 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
-  OneToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Usuario } from '../../users/entities/usuario.entity';
@@ -27,6 +27,12 @@ export class Agendamento {
 
   @Column({ length: 50, default: 'PENDENTE' })
   status: string;
+
+  @Column({ type: 'text', nullable: true })
+  motivo_cancelamento: string | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  cancelado_por: string | null;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   data_criacao: Date;
@@ -52,6 +58,6 @@ export class Agendamento {
   @JoinColumn({ name: 'id_servico' })
   servico: Servico;
 
-  @OneToOne(() => Avaliacao, (avaliacao) => avaliacao.agendamento)
-  avaliacao: Avaliacao | null;
+  @OneToMany(() => Avaliacao, (avaliacao) => avaliacao.agendamento)
+  avaliacoes: Avaliacao[];
 }

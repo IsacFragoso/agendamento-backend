@@ -72,6 +72,13 @@ export class AppointmentsController {
     return this.appointmentsService.findReview(id, user.sub, user.tipo_conta);
   }
 
+  @Get(':id/avaliacoes')
+  @UseGuards(JwtAuthGuard)
+  findReviews(@Param('id', ParseIntPipe) id: number, @Req() request: Request) {
+    const user = request.user as { sub: number; tipo_conta: string };
+    return this.appointmentsService.findReviews(id, user.sub, user.tipo_conta);
+  }
+
   @Patch(':id/avaliacao')
   @UseGuards(JwtAuthGuard)
   updateReview(

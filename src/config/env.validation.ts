@@ -46,6 +46,34 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   CLOUDINARY_API_SECRET?: string;
+
+  @IsOptional()
+  @IsString()
+  MAIL_HOST?: string;
+
+  @IsOptional()
+  @IsString()
+  MAIL_USER?: string;
+
+  @IsOptional()
+  @IsString()
+  MAIL_PASSWORD?: string;
+
+  @IsOptional()
+  @IsString()
+  MAIL_FROM?: string;
+
+  @IsOptional()
+  @IsNumber()
+  MAIL_PORT?: number;
+
+  @IsOptional()
+  @IsString()
+  MAIL_SECURE?: string;
+
+  @IsOptional()
+  @IsString()
+  FRONTEND_URL?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>) {

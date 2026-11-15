@@ -28,6 +28,8 @@ export async function createTestApp() {
       pagina: 1,
       limite: 10,
     }),
+    createProviderSuggestion: jest.fn().mockResolvedValue({ id_sugestao: 1 }),
+    findProviderSuggestions: jest.fn().mockResolvedValue([]),
     findOne: jest.fn().mockResolvedValue({ id_usuario: 7 }),
     update: jest.fn().mockResolvedValue({ id_usuario: 7 }),
     remove: jest.fn().mockResolvedValue({ message: 'Dados pessoais removidos com sucesso' }),
@@ -66,6 +68,7 @@ export async function createTestApp() {
     updateStatus: jest.fn().mockResolvedValue({ status: 'CONFIRMADO' }),
     createReview: jest.fn().mockResolvedValue({ id_avaliacao: 1 }),
     findReview: jest.fn().mockResolvedValue({ id_avaliacao: 1 }),
+    findReviews: jest.fn().mockResolvedValue([]),
     updateReview: jest.fn().mockResolvedValue({ id_avaliacao: 1 }),
     removeReview: jest.fn().mockResolvedValue({ message: 'Avaliação removida com sucesso' }),
   };

@@ -10,10 +10,11 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './strategies/jwt-auth.guard';
 import { AdminGuard } from './strategies/admin.guard';
+import { PasswordResetToken } from './entities/password-reset-token.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Usuario, RevokedToken]),
+    TypeOrmModule.forFeature([Usuario, RevokedToken, PasswordResetToken]),
     PassportModule,
     JwtModule.registerAsync({
       inject: [ConfigService],

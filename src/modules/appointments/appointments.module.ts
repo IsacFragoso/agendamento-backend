@@ -7,9 +7,13 @@ import { Agendamento } from './entities/agendamento.entity';
 import { Avaliacao } from './entities/avaliacao.entity';
 import { AppointmentsController } from './appointments.controller';
 import { AppointmentsService } from './appointments.service';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Agendamento, Avaliacao, Usuario, PerfilPrestador, Servico])],
+  imports: [
+    TypeOrmModule.forFeature([Agendamento, Avaliacao, Usuario, PerfilPrestador, Servico]),
+    ScheduleModule.forRoot(),
+  ],
   controllers: [AppointmentsController],
   providers: [AppointmentsService],
 })

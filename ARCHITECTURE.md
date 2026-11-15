@@ -86,6 +86,7 @@ Logout:  POST /api/auth/logout → store the token in the revocation table
 - Token lifetime: `JWT_EXPIRATION` seconds, defaulting to `3600` in the JWT module. Refresh tokens are not implemented.
 - Roles / permissions: `CLIENTE`, `PRESTADOR`, and `ADMIN` are carried in the JWT and refreshed from the database during JWT validation. `JwtAuthGuard` protects authenticated routes and `AdminGuard` restricts administrator-only routes. Ownership checks remain in the relevant service.
 - A user may only read and change their own appointments unless their role says otherwise. This check is applied in the service query, not only in the controller.
+- Password recovery uses single-use, hashed, expiring tokens and requires SMTP variables (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USER`, `MAIL_PASSWORD`, `MAIL_FROM`) plus the public frontend URL (`FRONTEND_URL`).
 
 ## 5. Errors
 
@@ -119,6 +120,9 @@ Throw Nest's built-in exceptions (`BadRequestException`, `ConflictException`, ..
 - The service owns the transaction of a use case (`DataSource.transaction(...)` or a `QueryRunner`).
 - The service currently checks for overlapping non-cancelled appointments before inserting, and returns `409` when it finds one. There is no database exclusion constraint, unique constraint, or locking transaction enforcing this invariant yet.
 - A check-then-insert in application code alone is **not** enough for concurrent requests; database-level overlap protection remains a known limitation before unattended self-service booking is enabled.
+- Clients and providers can cancel appointments in which they participate; a non-empty reason and cancelling account type are stored. Expired pending appointments are automatically cancelled every five minutes.
+- A completed appointment can have one review from each participant, stored separately by evaluator (`CLIENTE`/`PRESTADOR`).
+- Authenticated clients and providers may send a suggestion to a provider profile; only that provider may list its received suggestions.
 
 ## 8. Tests
 

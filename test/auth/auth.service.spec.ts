@@ -26,6 +26,11 @@ describe('AuthService', () => {
     const res = await svc.login(dto);
     expect(res).toHaveProperty('access_token', 'signed-token');
     expect(res.usuario).toMatchObject({ id_usuario: 42, email: 'test@example.com' });
+    expect(usuariosRepo.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({ senha_hash: true }),
+      }),
+    );
     expect(jwtService.sign).toHaveBeenCalledWith(
       expect.objectContaining({ sub: 42, email: 'test@example.com' }),
     );

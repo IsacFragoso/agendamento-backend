@@ -32,7 +32,7 @@ describe('AppointmentsService', () => {
     await service.findAllForUser(7, 'CLIENTE');
     expect(mocks.appointments.find).toHaveBeenCalledWith({
       where: { id_cliente: 7 },
-      relations: { prestador: true, servico: true, avaliacao: true },
+      relations: { prestador: { usuario: true }, servico: true, avaliacoes: true },
       order: { data_hora_inicio: 'ASC' },
     });
   });
@@ -50,8 +50,13 @@ describe('AppointmentsService', () => {
 
     await service.findAllForUser(12, 'PRESTADOR');
     expect(mocks.appointments.find).toHaveBeenCalledWith({
-      where: { id_prestador: 12 },
-      relations: { cliente: true, prestador: true, servico: true, avaliacao: true },
+      where: [{ id_prestador: 12 }, { id_cliente: 12 }],
+      relations: {
+        cliente: true,
+        prestador: { usuario: true },
+        servico: true,
+        avaliacoes: true,
+      },
       order: { data_hora_inicio: 'ASC' },
     });
   });
@@ -180,7 +185,120 @@ describe('AppointmentsService', () => {
 
     await expect(
       service.createReview(1, { nota_estrelas: 5 }, 7, 'CLIENTE'),
-    ).resolves.toEqual({ nota_estrelas: 5, id_agendamento: 1 });
+    ).resolves.toEqual({
+      nota_estrelas: 5,
+      id_agendamento: 1,
+      avaliador_tipo: 'CLIENTE',
+    });
+  });
+
+  it('allows the assigned provider to review the client after completion', async () => {
+    const mocks = repositories();
+    mocks.appointments.findOne.mockResolvedValue({
+      id_agendamento: 1,
+      id_cliente: 7,
+      id_prestador: 12,
+      status: 'CONCLUIDO',
+    });
+    mocks.reviews.save.mockImplementation(async (review) => review);
+    const service = new AppointmentsService(
+      mocks.appointments as any,
+      mocks.reviews as any,
+      mocks.users as any,
+      mocks.profiles as any,
+      mocks.services as any,
+    );
+
+    await expect(
+      service.createReview(1, { nota_estrelas: 4 }, 12, 'PRESTADOR'),
+    ).resolves.toEqual({
+      nota_estrelas: 4,
+      id_agendamento: 1,
+      avaliador_tipo: 'PRESTADOR',
+    });
+  });
+
+  it('allows a professional who booked another provider to cancel their own appointment with a reason', async () => {
+    const mocks = repositories();
+    const booking = {
+      id_agendamento: 1,
+      id_cliente: 12,
+      id_prestador: 8,
+      status: 'PENDENTE',
+    };
+    mocks.appointments.findOne.mockResolvedValue(booking);
+    const service = new AppointmentsService(
+      mocks.appointments as any,
+      mocks.reviews as any,
+      mocks.users as any,
+      mocks.profiles as any,
+      mocks.services as any,
+    );
+
+    await service.updateStatus(
+      1,
+      { status: 'CANCELADO', motivo_cancelamento: 'Imprevisto pessoal' },
+      12,
+      'PRESTADOR',
+    );
+    expect(booking).toMatchObject({
+      status: 'CANCELADO',
+      motivo_cancelamento: 'Imprevisto pessoal',
+      cancelado_por: 'PRESTADOR',
+    });
+  });
+
+  it('requires a non-empty reason when cancelling an appointment', async () => {
+    const mocks = repositories();
+    mocks.appointments.findOne.mockResolvedValue({
+      id_agendamento: 1,
+      id_cliente: 7,
+      id_prestador: 12,
+      status: 'PENDENTE',
+    });
+
+    const service = new AppointmentsService(
+      mocks.appointments as any,
+      mocks.reviews as any,
+      mocks.users as any,
+      mocks.profiles as any,
+      mocks.services as any,
+    );
+
+    await expect(
+      service.updateStatus(1, { status: 'CANCELADO', motivo_cancelamento: '  ' }, 7, 'CLIENTE'),
+    ).rejects.toThrow('Informe o motivo do cancelamento');
+  });
+
+  it('automatically cancels pending appointments whose start date has passed', async () => {
+    const mocks = repositories();
+    const queryBuilder = {
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ affected: 2 }),
+    };
+    mocks.appointments.createQueryBuilder.mockReturnValue(queryBuilder);
+    const service = new AppointmentsService(
+      mocks.appointments as any,
+      mocks.reviews as any,
+      mocks.users as any,
+      mocks.profiles as any,
+      mocks.services as any,
+    );
+
+    await service.cancelExpiredPendingAppointments();
+    expect(queryBuilder.set).toHaveBeenCalledWith({
+      status: 'CANCELADO',
+      motivo_cancelamento: 'Agendamento pendente vencido automaticamente.',
+      cancelado_por: 'SISTEMA',
+    });
+    expect(queryBuilder.where).toHaveBeenCalledWith('"status" = :status', { status: 'PENDENTE' });
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      '"data_hora_inicio" < :now',
+      expect.objectContaining({ now: expect.any(Date) }),
+    );
   });
 
   it('rejects an overlapping appointment', async () => {

@@ -24,6 +24,8 @@ import { CloudinaryService, UploadedImageFile } from '../../common/storage/cloud
 import { DistanceUtilService } from '../../common/utils/distance.util';
 import { Avaliacao } from '../appointments/entities/avaliacao.entity';
 import { ListProviderReviewsDto } from './dto/list-provider-reviews.dto';
+import { SugestaoPrestador } from './entities/sugestao.entity';
+import { CreateSuggestionDto } from './dto/create-suggestion.dto';
 
 @Injectable()
 export class UsersService {
@@ -37,6 +39,9 @@ export class UsersService {
     private readonly avaliacoesRepository?: Repository<Avaliacao>,
     @Optional() private readonly distanceUtil?: DistanceUtilService,
     @Optional() private readonly cloudinaryService?: CloudinaryService,
+    @Optional()
+    @InjectRepository(SugestaoPrestador)
+    private readonly sugestoesRepository?: Repository<SugestaoPrestador>,
   ) {}
 
   async create(dto: CreateUsuarioDto) {
@@ -188,6 +193,61 @@ export class UsersService {
     };
   }
 
+  async createProviderSuggestion(
+    providerId: number,
+    dto: CreateSuggestionDto,
+    senderId: number,
+    senderType: string,
+  ) {
+    if (!['CLIENTE', 'PRESTADOR'].includes(senderType)) {
+      throw new ForbiddenException('Apenas clientes e prestadores podem enviar sugestões');
+    }
+    if (providerId === senderId) {
+      throw new BadRequestException('Escolha outro profissional para enviar uma sugestão');
+    }
+    const repository = this.sugestoesRepository;
+    if (!repository) throw new Error('Repositório de sugestões não está configurado');
+    await this.findPublicProvider(providerId);
+    const suggestion = dto.sugestao.trim();
+    if (suggestion.length < 2) throw new BadRequestException('A sugestão deve ter pelo menos 2 caracteres');
+    return repository.save(repository.create({
+      id_prestador: providerId,
+      id_remetente: senderId,
+      remetente_tipo: senderType,
+      sugestao: suggestion,
+    }));
+  }
+
+  async findProviderSuggestions(providerId: number, requesterId: number, requesterType: string) {
+    if (requesterType !== 'PRESTADOR' || providerId !== requesterId) {
+      throw new ForbiddenException('Apenas o profissional pode visualizar suas sugestões recebidas');
+    }
+    const repository = this.sugestoesRepository;
+    if (!repository) throw new Error('Repositório de sugestões não está configurado');
+    const suggestions = await repository.find({
+      where: { id_prestador: providerId },
+      relations: { remetente: true },
+      select: {
+        id_sugestao: true,
+        id_prestador: true,
+        id_remetente: true,
+        remetente_tipo: true,
+        sugestao: true,
+        data_criacao: true,
+        remetente: { nome_completo: true },
+      },
+      order: { data_criacao: 'DESC' },
+    });
+    return suggestions.map((item) => ({
+      id_sugestao: item.id_sugestao,
+      id_remetente: item.id_remetente,
+      remetente_tipo: item.remetente_tipo,
+      remetente_nome: item.remetente?.nome_completo || 'Usuário',
+      sugestao: item.sugestao,
+      data_criacao: item.data_criacao,
+    }));
+  }
+
   async searchProviders(dto: SearchPrestadoresDto) {
     const hasLatitude = dto.latitude !== undefined;
     const hasLongitude = dto.longitude !== undefined;
@@ -321,7 +381,11 @@ export class UsersService {
       throw new BadRequestException('A confirmação da nova senha não confere');
     }
 
-    const usuario = await this.findEntity(id);
+    const usuario = await this.usuariosRepository.findOne({
+      where: { id_usuario: id, deleted_at: IsNull() },
+      select: { id_usuario: true, senha_hash: true },
+    });
+    if (!usuario) throw new NotFoundException('Usuário não encontrado');
     const currentPasswordMatches = await bcryptjs.compare(dto.senha_atual, usuario.senha_hash);
     if (!currentPasswordMatches) {
       throw new UnauthorizedException('A senha atual está incorreta');

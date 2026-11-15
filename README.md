@@ -5,7 +5,7 @@ Este repositório contém a API REST de backend de um sistema acadêmico de agen
 ## Tecnologias
 
 - Node.js e TypeScript
-- NestJS 10 com o adaptador Express
+- NestJS 11 com o adaptador Express
 - PostgreSQL, TypeORM e `pg`
 - Autenticação Passport JWT; hash de senhas com `bcryptjs`
 - Validação de DTOs com `class-validator` e `class-transformer`
@@ -13,7 +13,7 @@ Este repositório contém a API REST de backend de um sistema acadêmico de agen
 
 ## Pré-requisitos
 
-- Node.js 18+ (informado no README existente; `package.json` não declara um campo `engines`)
+- Node.js 20+
 - npm
 - PostgreSQL local ou hospedado
 - O funcionamento da aplicação não exige Docker. TODO: documentar uma configuração com Docker caso ela seja desejada; não há arquivo Docker Compose no repositório.
@@ -77,6 +77,12 @@ Este repositório contém a API REST de backend de um sistema acadêmico de agen
 - `npm run migration:run` — compila o projeto e executa as migrations pendentes do TypeORM.
 - `npm run migration:revert` — compila o projeto e reverte a migration mais recente do TypeORM.
 
+## Implantação no Render
+
+O arquivo `render.yaml` define um serviço web gratuito com health check em `/api/health`. Crie um Blueprint no Render apontando para este repositório e preencha as variáveis marcadas como `sync: false` com as credenciais do PostgreSQL Neon e do Gmail SMTP. O `JWT_SECRET` é gerado pelo Render. A migration atual já foi aplicada ao banco Neon configurado neste ambiente.
+
+O Render fornecerá a URL pública da API após criar o serviço. Configure essa URL como `VITE_API_BASE_URL` no build do frontend, terminando em `/api`. O frontend estático do GitHub Pages não hospeda a API.
+
 ## Execução dos testes
 
 Execute `npm run test:api` para rodar os testes unitários (`*.spec.ts`) e os testes HTTP/e2e (`*.e2e-spec.ts`). Não há scripts separados para unitários e e2e em `package.json`. Os testes usam serviços e repositórios simulados e não precisam de banco de dados; não os aponte para um banco de desenvolvimento.
@@ -122,8 +128,8 @@ This repository contains the backend REST API for a school appointment-booking s
 
 ## Tech Stack
 
-- Node.js and TypeScript
-- NestJS 10 with the Express adapter
+- Node.js 20+ and TypeScript
+- NestJS 11 with the Express adapter
 - PostgreSQL, TypeORM, and `pg`
 - Passport JWT authentication; `bcryptjs` password hashing
 - DTO validation with `class-validator` and `class-transformer`
@@ -131,7 +137,7 @@ This repository contains the backend REST API for a school appointment-booking s
 
 ## Prerequisites
 
-- Node.js 18+ (stated in the existing README; `package.json` does not declare an `engines` field)
+- Node.js 20+
 - npm
 - PostgreSQL, local or hosted
 - Docker is not required by the application. TODO: document a Docker setup if one is intended; no Docker Compose file is present.
@@ -195,6 +201,12 @@ This repository contains the backend REST API for a school appointment-booking s
 - `npm run lint` — run ESLint with automatic fixes on matching TypeScript files.
 - `npm run migration:run` — build and run pending TypeORM migrations.
 - `npm run migration:revert` — build and revert the latest TypeORM migration.
+
+## Deployment on Render
+
+The `render.yaml` file defines a free web service with a health check at `/api/health`. Create a Render Blueprint pointing to this repository and fill the variables marked `sync: false` with the Neon PostgreSQL and Gmail SMTP credentials. Render generates `JWT_SECRET`. The current migration has already been applied to the Neon database configured in this environment.
+
+Render provides the public API URL after creating the service. Set it as `VITE_API_BASE_URL` when building the frontend, ending in `/api`. GitHub Pages hosts only the static frontend, not the API.
 
 ## Running Tests
 

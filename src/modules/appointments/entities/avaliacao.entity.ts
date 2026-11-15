@@ -1,8 +1,10 @@
-import { Check, Column, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Check, Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, Unique } from 'typeorm';
 import { Agendamento } from './agendamento.entity';
 
 @Entity('avaliacao')
 @Check('CK_avaliacao_nota', '"nota_estrelas" BETWEEN 1 AND 5')
+@Check('CK_avaliacao_avaliador_tipo', `"avaliador_tipo" IN ('CLIENTE', 'PRESTADOR')`)
+@Unique('UQ_avaliacao_agendamento_avaliador', ['id_agendamento', 'avaliador_tipo'])
 export class Avaliacao {
   @PrimaryGeneratedColumn({ name: 'id_avaliacao' })
   id_avaliacao: number;
@@ -16,10 +18,13 @@ export class Avaliacao {
   @Column({ type: 'date', default: () => 'CURRENT_DATE' })
   data: Date;
 
-  @Column({ name: 'id_agendamento', unique: true })
+  @Column({ name: 'id_agendamento' })
   id_agendamento: number;
 
-  @OneToOne(() => Agendamento, (agendamento) => agendamento.avaliacao, { onDelete: 'CASCADE' })
+  @Column({ type: 'varchar', length: 20, default: 'CLIENTE' })
+  avaliador_tipo: string;
+
+  @ManyToOne(() => Agendamento, (agendamento) => agendamento.avaliacoes, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'id_agendamento' })
   agendamento: Agendamento;
 }

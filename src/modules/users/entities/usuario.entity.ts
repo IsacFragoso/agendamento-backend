@@ -33,7 +33,7 @@ export class Usuario {
   @Column({ length: 50 })
   tipo_conta: string;
 
-  @Column({ length: 255 })
+  @Column({ length: 255, select: false })
   senha_hash: string;
 
   @Column({ type: 'timestamptz', nullable: true })

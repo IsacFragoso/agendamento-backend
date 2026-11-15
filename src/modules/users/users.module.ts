@@ -9,10 +9,11 @@ import { UsersController } from './users.controller';
 import { ProvidersController } from './providers.controller';
 import { UsersService } from './users.service';
 import { DistanceUtilService } from '../../common/utils/distance.util';
+import { SugestaoPrestador } from './entities/sugestao.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Usuario, PerfilPrestador, Agendamento, Avaliacao]),
+    TypeOrmModule.forFeature([Usuario, PerfilPrestador, Agendamento, Avaliacao, SugestaoPrestador]),
     CloudinaryModule,
   ],
   controllers: [UsersController, ProvidersController],
