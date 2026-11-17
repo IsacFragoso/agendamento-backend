@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { config } from 'dotenv';
 import { DataSource } from 'typeorm';
+import { createDatabaseOptions } from './database.config';
 import { Usuario } from '../modules/users/entities/usuario.entity';
 import { PerfilPrestador } from '../modules/users/entities/perfil-prestador.entity';
 import { Categoria } from '../modules/services/entities/categoria.entity';
@@ -15,16 +16,7 @@ import { Horario } from '../modules/schedules/entities/horario.entity';
 config();
 
 export default new DataSource({
-  type: 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  port: Number(process.env.DB_PORT || 5432),
-  username: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'agendamento',
-  ssl:
-    process.env.DB_SSL === 'true' || process.env.DB_HOST !== 'localhost'
-      ? { rejectUnauthorized: false }
-      : false,
+  ...createDatabaseOptions(),
   entities: [
     Usuario,
     PerfilPrestador,

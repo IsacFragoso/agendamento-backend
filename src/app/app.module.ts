@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule } from '../config/config.module';
 import { DatabaseModule } from '../database/database.module';
 import { UsersModule } from '../modules/users/users.module';
 import { ServicesModule } from '../modules/services/services.module';
@@ -11,10 +11,7 @@ import { AppService } from './app.service';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: '.env',
-    }),
+    ConfigModule,
     DatabaseModule,
     UsersModule,
     ServicesModule,

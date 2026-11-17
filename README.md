@@ -38,7 +38,8 @@ Este repositório contém a API REST de backend de um sistema acadêmico de agen
    | --- | --- |
    | `NODE_ENV` | Ambiente de execução (`development`, `production` ou `test`). |
    | `PORT` | Porta HTTP; o modelo usa `8000`. |
-   | `DB_HOST` | Host do PostgreSQL. |
+   | `DATABASE_URL` | URL completa do PostgreSQL; opcional quando as variáveis `DB_*` são usadas. |
+   | `DB_HOST` | Host do PostgreSQL; use as variáveis `DB_*` em conjunto ou configure `DATABASE_URL`. |
    | `DB_PORT` | Porta do PostgreSQL; o modelo usa `5432`. |
    | `DB_USER` | Usuário do PostgreSQL. |
    | `DB_PASSWORD` | Senha do PostgreSQL. |

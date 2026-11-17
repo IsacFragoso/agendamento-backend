@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { createDatabaseOptions } from './database.config';
 import { Usuario } from '../modules/users/entities/usuario.entity';
 import { PerfilPrestador } from '../modules/users/entities/perfil-prestador.entity';
 import { Categoria } from '../modules/services/entities/categoria.entity';
@@ -17,12 +18,15 @@ import { SugestaoPrestador } from '../modules/users/entities/sugestao.entity';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get('DB_HOST', 'localhost'),
-        port: configService.get('DB_PORT', 5432),
-        username: configService.get('DB_USER', 'postgres'),
-        password: configService.get('DB_PASSWORD', ''),
-        database: configService.get('DB_NAME', 'agendamento'),
+        ...createDatabaseOptions({
+          DATABASE_URL: configService.get<string>('DATABASE_URL'),
+          DB_HOST: configService.get<string>('DB_HOST'),
+          DB_PORT: configService.get<string>('DB_PORT'),
+          DB_USER: configService.get<string>('DB_USER'),
+          DB_PASSWORD: configService.get<string>('DB_PASSWORD'),
+          DB_NAME: configService.get<string>('DB_NAME'),
+          DB_SSL: configService.get<string>('DB_SSL'),
+        }),
         entities: [
           Usuario,
           PerfilPrestador,
@@ -38,7 +42,6 @@ import { SugestaoPrestador } from '../modules/users/entities/sugestao.entity';
         migrations: [__dirname + '/migrations/*.{js,ts}'],
         synchronize: false,
         logging: configService.get('NODE_ENV') !== 'production',
-        ssl: configService.get('DB_HOST') !== 'localhost' ? { rejectUnauthorized: false } : false,
       }),
       inject: [ConfigService],
     }),

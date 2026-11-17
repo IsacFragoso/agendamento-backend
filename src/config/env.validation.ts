@@ -1,5 +1,13 @@
 import { plainToClass } from 'class-transformer';
-import { IsEnum, IsNumber, IsOptional, IsString, validateSync } from 'class-validator';
+import {
+  IsEnum,
+  IsIn,
+  IsNumber,
+  IsOptional,
+  IsString,
+  ValidateIf,
+  validateSync,
+} from 'class-validator';
 
 enum Environment {
   Development = 'development',
@@ -14,20 +22,32 @@ class EnvironmentVariables {
   @IsNumber()
   PORT: number = 8000;
 
+  @IsOptional()
   @IsString()
-  DB_HOST: string;
+  DATABASE_URL?: string;
 
   @IsNumber()
   DB_PORT: number = 5432;
 
+  @ValidateIf((environment) => !environment.DATABASE_URL)
+  @IsString()
+  DB_HOST: string;
+
+  @ValidateIf((environment) => !environment.DATABASE_URL)
   @IsString()
   DB_USER: string;
 
+  @ValidateIf((environment) => !environment.DATABASE_URL)
   @IsString()
   DB_PASSWORD: string;
 
+  @ValidateIf((environment) => !environment.DATABASE_URL)
   @IsString()
   DB_NAME: string;
+
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  DB_SSL?: string;
 
   @IsString()
   JWT_SECRET: string;
