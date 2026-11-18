@@ -37,6 +37,15 @@ export class Usuario {
   senha_hash: string;
 
   @Column({ type: 'timestamptz', nullable: true })
+  email_verified_at: Date | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true, select: false })
+  email_verification_token_hash: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true, select: false })
+  email_verification_expires_at: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
   deleted_at: Date | null;
 
   @OneToOne(() => PerfilPrestador, (perfil) => perfil.usuario)

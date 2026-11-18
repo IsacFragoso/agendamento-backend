@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light" />
+  <meta name="supported-color-schemes" content="light" />
+  <title>Confirme seu e-mail</title>
+  <style>
+    @media only screen and (max-width: 620px) {
+      .email-container { width: 100% !important; }
+      .email-content { padding: 32px 24px !important; }
+      .email-header { padding: 26px 24px !important; }
+      .email-footer { padding: 22px 24px !important; }
+      .email-title { font-size: 26px !important; line-height: 33px !important; }
+    }
+  </style>
+</head>
+<body style="margin:0;padding:0;width:100%;background-color:#f5f4ee;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;font-family:Inter,Arial,Helvetica,sans-serif;">
+  <div style="display:none;font-size:1px;color:#f5f4ee;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">
+    Confirme seu e-mail para ativar sua conta SAPNE. O link é válido por 24 horas.
+  </div>
+
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="border-collapse:collapse;background-color:#f5f4ee;">
+    <tr>
+      <td align="center" style="padding:40px 16px;">
+        <table role="presentation" class="email-container" cellspacing="0" cellpadding="0" border="0" width="540" style="border-collapse:separate;width:540px;max-width:100%;background-color:#ffffff;border:1px solid #dfe3ee;border-radius:12px;box-shadow:0 10px 30px rgba(79,70,229,0.12);">
+          <tr>
+            <td class="email-header" align="center" style="padding:28px 32px;border-bottom:1px solid #dfe3ee;">
+              <span style="display:inline-block;vertical-align:middle;color:#1f2937;font-size:21px;line-height:38px;font-weight:800;letter-spacing:-0.5px;">{{appName}}</span>
+            </td>
+          </tr>
+
+          <tr>
+            <td class="email-content" align="center" style="padding:38px 44px 36px;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="border-collapse:collapse;">
+                <tr>
+                  <td align="center" style="padding-bottom:20px;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;">
+                      <tr>
+                        <td align="center" width="64" height="64" style="width:64px;height:64px;background-color:#e0e7ff;border-radius:18px;color:#4f46e5;font-size:30px;line-height:64px;">✉</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding-bottom:14px;">
+                    <h1 class="email-title" style="margin:0;color:#1f2937;font-size:29px;line-height:37px;font-weight:800;letter-spacing:-0.8px;">Confirme seu e-mail</h1>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding-bottom:26px;">
+                    <p style="margin:0;color:#6b7280;font-size:16px;line-height:26px;">Seu cadastro está quase pronto. Clique no botão abaixo para confirmar seu endereço de e-mail e ativar sua conta.</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding:0 0 22px;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:separate;">
+                      <tr>
+                        <td align="center" bgcolor="#4f46e5" style="border-radius:8px;background-color:#4f46e5;">
+                          <a href="{{verificationUrl}}" target="_blank" style="display:inline-block;padding:15px 28px;border:1px solid #4f46e5;border-radius:8px;background-color:#4f46e5;color:#ffffff;font-size:15px;line-height:20px;font-weight:700;text-align:center;text-decoration:none;">Confirmar meu e-mail</a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding-bottom:28px;">
+                    <p style="margin:0;color:#6b7280;font-size:13px;line-height:20px;">Este link expira em <strong style="color:#1f2937;">24 horas</strong>.</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="border-top:1px solid #dfe3ee;padding-top:22px;">
+                    <p style="margin:0 0 9px;color:#6b7280;font-size:13px;line-height:21px;">Se o botão não funcionar, copie e cole este endereço no navegador:</p>
+                    <p style="margin:0;font-size:12px;line-height:20px;overflow-wrap:anywhere;word-break:break-all;">
+                      <a href="{{verificationUrl}}" style="color:#4f46e5;text-decoration:underline;">{{verificationUrl}}</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td class="email-footer" align="center" style="padding:24px 32px;background-color:#fafaf8;border-top:1px solid #dfe3ee;border-radius:0 0 12px 12px;">
+              <p style="margin:0 0 8px;color:#6b7280;font-size:13px;line-height:21px;">Se você não criou uma conta, pode ignorar este e-mail.</p>
+              <p style="margin:0;color:#6b7280;font-size:12px;line-height:19px;">Mensagem automática enviada por {{appName}}. Não é necessário responder.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

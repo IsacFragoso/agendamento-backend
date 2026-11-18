@@ -8,6 +8,8 @@ describe('Auth API', () => {
   let app: INestApplication;
   const authService = {
     login: jest.fn(),
+    verifyEmail: jest.fn(),
+    requestEmailVerification: jest.fn(),
   };
 
   beforeAll(async () => {
@@ -22,6 +24,8 @@ describe('Auth API', () => {
 
   beforeEach(() => {
     authService.login.mockReset();
+    authService.verifyEmail.mockReset();
+    authService.requestEmailVerification.mockReset();
     authService.login.mockResolvedValue({
       access_token: 'signed-token',
       usuario: {
@@ -61,5 +65,35 @@ describe('Auth API', () => {
         ativo: true,
       },
     });
+  });
+
+  it('verifies an email with a confirmation token', async () => {
+    authService.verifyEmail.mockResolvedValue({
+      message: 'E-mail confirmado com sucesso. Faça login para continuar.',
+    });
+    const response = await request(app.getHttpServer())
+      .post('/auth/verificar-email')
+      .send({ token: 'a'.repeat(64) })
+      .expect(201);
+
+    expect(authService.verifyEmail).toHaveBeenCalledWith({ token: 'a'.repeat(64) });
+    expect(response.body.message).toContain('confirmado');
+  });
+
+  it('accepts a request to resend email verification', async () => {
+    authService.requestEmailVerification.mockResolvedValue({
+      message: 'Se houver uma conta pendente para esse e-mail, você receberá um novo link.',
+    });
+    await request(app.getHttpServer())
+      .post('/auth/reenviar-verificacao')
+      .send({ email: 'alice@example.com' })
+      .expect(201);
+
+    expect(authService.requestEmailVerification).toHaveBeenCalledWith(
+      {
+        email: 'alice@example.com',
+      },
+      expect.any(String),
+    );
   });
 });
