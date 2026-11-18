@@ -157,6 +157,58 @@ export class SchedulesService {
     return { message: 'Horários removidos com sucesso' };
   }
 
+  async updateInterval(
+    id_prestador: number,
+    id_horario: number,
+    dto: UpdateHorarioDto,
+    requesterId: number,
+    requesterType: string,
+  ) {
+    this.requireProvider(id_prestador, requesterId, requesterType);
+    const horario = await this.horariosRepository.findOne({
+      where: { id_horario, id_prestador },
+    });
+    if (!horario) throw new NotFoundException('Horário não encontrado');
+
+    const dia_semana =
+      dto.dia_semana ??
+      (dto.dias_atendimento ? this.dayNumber(dto.dias_atendimento) : horario.dia_semana);
+    if (dia_semana === undefined) throw new BadRequestException('Dia da semana inválido');
+    const hora_inicio = dto.horario_inicio ?? horario.hora_inicio;
+    const hora_fim = dto.horario_fim ?? horario.hora_fim;
+    if (hora_inicio >= hora_fim) {
+      throw new BadRequestException('Intervalo de horário inválido');
+    }
+
+    horario.dia_semana = dia_semana;
+    horario.hora_inicio = hora_inicio;
+    horario.hora_fim = hora_fim;
+
+    try {
+      return await this.horariosRepository.save(horario);
+    } catch (error) {
+      if (getPostgresErrorCode(error) === '23505') {
+        throw new ConflictException('Este intervalo já está cadastrado');
+      }
+      throw error;
+    }
+  }
+
+  async removeInterval(
+    id_prestador: number,
+    id_horario: number,
+    requesterId: number,
+    requesterType: string,
+  ) {
+    this.requireProvider(id_prestador, requesterId, requesterType);
+    const horario = await this.horariosRepository.findOne({
+      where: { id_horario, id_prestador },
+    });
+    if (!horario) throw new NotFoundException('Horário não encontrado');
+    await this.horariosRepository.remove(horario);
+    return { message: 'Disponibilidade removida com sucesso' };
+  }
+
   private requireProvider(id: number, requesterId: number, requesterType: string) {
     if (requesterType !== 'ADMIN' && (requesterType !== 'PRESTADOR' || id !== requesterId)) {
       throw new ForbiddenException('Você só pode gerenciar o próprio horário de prestador');

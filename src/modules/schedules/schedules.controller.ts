@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   ParseIntPipe,
   Query,
   Put,
@@ -42,6 +43,29 @@ export class SchedulesController {
   ) {
     const user = request.user as { sub: number; tipo_conta: string };
     return this.schedulesService.update(id, dto, user.sub, user.tipo_conta);
+  }
+
+  @Patch(':scheduleId')
+  @UseGuards(JwtAuthGuard)
+  updateInterval(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('scheduleId', ParseIntPipe) scheduleId: number,
+    @Body() dto: UpdateHorarioDto,
+    @Req() request: Request,
+  ) {
+    const user = request.user as { sub: number; tipo_conta: string };
+    return this.schedulesService.updateInterval(id, scheduleId, dto, user.sub, user.tipo_conta);
+  }
+
+  @Delete(':scheduleId')
+  @UseGuards(JwtAuthGuard)
+  removeInterval(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('scheduleId', ParseIntPipe) scheduleId: number,
+    @Req() request: Request,
+  ) {
+    const user = request.user as { sub: number; tipo_conta: string };
+    return this.schedulesService.removeInterval(id, scheduleId, user.sub, user.tipo_conta);
   }
 
   @Delete()
