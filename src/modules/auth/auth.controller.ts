@@ -5,6 +5,8 @@ import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './strategies/jwt-auth.guard';
 import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
+import { RequestEmailVerificationDto } from './dto/request-email-verification.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -23,6 +25,16 @@ export class AuthController {
   @Post('redefinir-senha')
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto);
+  }
+
+  @Post('verificar-email')
+  verifyEmail(@Body() dto: VerifyEmailDto) {
+    return this.authService.verifyEmail(dto);
+  }
+
+  @Post('reenviar-verificacao')
+  requestEmailVerification(@Body() dto: RequestEmailVerificationDto, @Req() request: Request) {
+    return this.authService.requestEmailVerification(dto, request.ip);
   }
 
   @Post('logout')

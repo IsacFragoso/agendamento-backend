@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   Optional,
   UnauthorizedException,
@@ -26,9 +27,12 @@ import { Avaliacao } from '../appointments/entities/avaliacao.entity';
 import { ListProviderReviewsDto } from './dto/list-provider-reviews.dto';
 import { SugestaoPrestador } from './entities/sugestao.entity';
 import { CreateSuggestionDto } from './dto/create-suggestion.dto';
+import { AuthService } from '../auth/auth.service';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     @InjectRepository(Usuario)
     private readonly usuariosRepository: Repository<Usuario>,
@@ -42,9 +46,11 @@ export class UsersService {
     @Optional()
     @InjectRepository(SugestaoPrestador)
     private readonly sugestoesRepository?: Repository<SugestaoPrestador>,
+    @Optional()
+    private readonly authService?: AuthService,
   ) {}
 
-  async create(dto: CreateUsuarioDto) {
+  async create(dto: CreateUsuarioDto, ipAddress = 'unknown') {
     const existing = await this.usuariosRepository.findOne({ where: { email: dto.email } });
     if (existing) {
       throw new ConflictException('E-mail já cadastrado');
@@ -77,7 +83,31 @@ export class UsersService {
       throw error;
     }
 
-    return this.withoutPassword(saved);
+    const safeUser = this.withoutPassword(saved);
+    try {
+      const emailSent = await this.authService?.sendEmailVerification(saved, ipAddress);
+      if (!emailSent) {
+        return {
+          ...safeUser,
+          message:
+            'Conta criada, mas o limite de envio foi atingido. Aguarde antes de solicitar outro link.',
+        };
+      }
+      return {
+        ...safeUser,
+        message: 'Conta criada. Verifique seu e-mail para ativar o acesso.',
+      };
+    } catch (error) {
+      this.logger.error(
+        'Email verification delivery failed after account creation',
+        error instanceof Error ? error.stack : undefined,
+      );
+      return {
+        ...safeUser,
+        message:
+          'Conta criada, mas o e-mail de verificação não pôde ser enviado. Solicite um novo envio.',
+      };
+    }
   }
 
   async findAll() {

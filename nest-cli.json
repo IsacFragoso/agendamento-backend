@@ -6,7 +6,9 @@
     "deleteOutDir": true,
     "webpackConfigFn": null,
     "tsConfigPath": "tsconfig.json",
-    "sourceRoot": "src"
+    "sourceRoot": "src",
+    "assets": ["common/template/**/*"],
+    "watchAssets": true
   },
   "generateOptions": {
     "spec": false

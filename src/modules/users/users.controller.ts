@@ -33,8 +33,8 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
-  create(@Body() dto: CreateUsuarioDto) {
-    return this.usersService.create(dto);
+  create(@Body() dto: CreateUsuarioDto, @Req() request: Request) {
+    return this.usersService.create(dto, request.ip);
   }
 
   @Get()

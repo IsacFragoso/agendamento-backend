@@ -20,11 +20,14 @@ describe('Users API', () => {
         senha: 'password',
       })
       .expect(201);
-    expect(context.usersService.create).toHaveBeenCalledWith({
-      email: 'client@example.com',
-      telefone: '11999998888',
-      senha: 'password',
-    });
+    expect(context.usersService.create).toHaveBeenCalledWith(
+      {
+        email: 'client@example.com',
+        telefone: '11999998888',
+        senha: 'password',
+      },
+      expect.any(String),
+    );
   });
 
   it('returns public provider details by id', async () => {
