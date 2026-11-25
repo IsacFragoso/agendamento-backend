@@ -1,7 +1,7 @@
-import { IsString, MinLength } from 'class-validator';
+import { IsString, Matches } from 'class-validator';
 
 export class VerifyEmailDto {
   @IsString()
-  @MinLength(32)
+  @Matches(/^[a-f0-9]{64}$/)
   token: string;
 }

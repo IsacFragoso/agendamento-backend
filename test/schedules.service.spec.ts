@@ -9,8 +9,10 @@ import { SchedulesService } from '../src/modules/schedules/schedules.service';
 describe('SchedulesService interval management', () => {
   const scheduleRepository = {
     findOne: jest.fn(),
+    find: jest.fn(),
     save: jest.fn(),
     remove: jest.fn(),
+    create: jest.fn((value) => value),
   };
   let service: SchedulesService;
 
@@ -51,6 +53,41 @@ describe('SchedulesService interval management', () => {
       dia_semana: 2,
       hora_inicio: '09:00',
       hora_fim: '13:00',
+    });
+  });
+
+  it('replaces the existing interval when another interval is saved for the same day', async () => {
+    const existing = {
+      id_horario: 12,
+      id_prestador: 7,
+      dia_semana: 1,
+      hora_inicio: '08:00:00',
+      hora_fim: '12:00:00',
+    };
+    scheduleRepository.find.mockResolvedValue([existing]);
+    scheduleRepository.save.mockImplementation(async (value) => value);
+    const replacementService = new SchedulesService(
+      { findOne: jest.fn().mockResolvedValue({ id_usuario: 7 }) } as any,
+      scheduleRepository as unknown as Repository<Horario>,
+      {} as unknown as Repository<Servico>,
+      {} as unknown as Repository<Agendamento>,
+    );
+
+    await replacementService.update(
+      7,
+      { dia_semana: 1, horario_inicio: '13:00', horario_fim: '18:00' },
+      7,
+      'PRESTADOR',
+    );
+
+    expect(scheduleRepository.find).toHaveBeenCalledWith({
+      where: { id_prestador: 7, dia_semana: 1 },
+      order: { id_horario: 'ASC' },
+    });
+    expect(scheduleRepository.save).toHaveBeenCalledWith({
+      ...existing,
+      hora_inicio: '13:00',
+      hora_fim: '18:00',
     });
   });
 

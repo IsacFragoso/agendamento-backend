@@ -121,22 +121,38 @@ export class SchedulesService {
     if (!dto.horario_inicio || !dto.horario_fim || dto.horario_inicio >= dto.horario_fim) {
       throw new BadRequestException('Intervalo de horário inválido');
     }
-    const interval = {
-      dia_semana,
-      hora_inicio: dto.horario_inicio,
-      hora_fim: dto.horario_fim,
-      id_prestador,
-    };
-    const existing = await this.horariosRepository.findOne({ where: interval });
-    if (existing) return existing;
-
     try {
-      return await this.horariosRepository.save(this.horariosRepository.create(interval));
+      const existingForDay = await this.horariosRepository.find({
+        where: { id_prestador, dia_semana },
+        order: { id_horario: 'ASC' },
+      });
+      if (existingForDay.length > 0) {
+        const kept = existingForDay[0];
+        kept.hora_inicio = dto.horario_inicio;
+        kept.hora_fim = dto.horario_fim;
+        const saved = await this.horariosRepository.save(kept);
+        if (existingForDay.length > 1) {
+          await this.horariosRepository.remove(existingForDay.slice(1));
+        }
+        return saved;
+      }
+      return await this.horariosRepository.save(this.horariosRepository.create({
+        dia_semana,
+        hora_inicio: dto.horario_inicio,
+        hora_fim: dto.horario_fim,
+        id_prestador,
+      }));
     } catch (error) {
       if (getPostgresErrorCode(error) === '23505') {
-        const concurrentDuplicate = await this.horariosRepository.findOne({ where: interval });
-        if (concurrentDuplicate) return concurrentDuplicate;
-        throw new ConflictException('Este intervalo já está cadastrado');
+        const concurrentForDay = await this.horariosRepository.findOne({
+          where: { id_prestador, dia_semana },
+        });
+        if (concurrentForDay) {
+          concurrentForDay.hora_inicio = dto.horario_inicio;
+          concurrentForDay.hora_fim = dto.horario_fim;
+          return await this.horariosRepository.save(concurrentForDay);
+        }
+        throw new ConflictException('Não foi possível atualizar o horário deste dia');
       }
       throw error;
     }
@@ -185,6 +201,12 @@ export class SchedulesService {
     horario.hora_fim = hora_fim;
 
     try {
+      const conflicting = await this.horariosRepository.findOne({
+        where: { id_prestador, dia_semana },
+      });
+      if (conflicting && conflicting.id_horario !== horario.id_horario) {
+        await this.horariosRepository.remove(conflicting);
+      }
       return await this.horariosRepository.save(horario);
     } catch (error) {
       if (getPostgresErrorCode(error) === '23505') {

@@ -42,8 +42,9 @@ export class AuthService {
   ) {}
 
   async login(dto: LoginDto) {
+    const email = dto.email.trim().toLowerCase();
     const usuario = await this.usuariosRepository.findOne({
-      where: { email: dto.email },
+      where: { email },
       select: {
         id_usuario: true,
         nome_completo: true,
@@ -197,7 +198,7 @@ export class AuthService {
   }
 
   async sendEmailVerification(usuario: Usuario, ipAddress = 'unknown') {
-    const mail = this.getMailConfiguration();
+    const mail = this.getEmailConfiguration();
     const allowed = await this.reserveEmailVerificationAttempt(
       usuario.email,
       ipAddress,
@@ -232,29 +233,68 @@ export class AuthService {
     };
   }
 
+  private getEmailConfiguration() {
+    const config = this.configService;
+    const relayUrl = config?.get<string>('GMAIL_APPS_SCRIPT_URL');
+    const relaySecret = config?.get<string>('GMAIL_APPS_SCRIPT_SECRET');
+    const frontendUrl = config?.get<string>('FRONTEND_URL') || 'http://localhost:5173';
+    if (!relayUrl || !relaySecret) {
+      throw new ServiceUnavailableException('A verificação de e-mail não está configurada');
+    }
+    return { relayUrl, relaySecret, frontendUrl };
+  }
+
   private async deliverEmailVerification(
     usuario: Usuario,
-    mail: ReturnType<AuthService['getMailConfiguration']>,
+    mail: ReturnType<AuthService['getEmailConfiguration']>,
   ) {
     const token = randomBytes(32).toString('hex');
-    usuario.email_verification_token_hash = createHash('sha256').update(token).digest('hex');
-    usuario.email_verification_expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    await this.usuariosRepository.save(usuario);
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const result = await this.usuariosRepository.update(
+      {
+        id_usuario: usuario.id_usuario,
+        email: usuario.email,
+        email_verified_at: IsNull(),
+        deleted_at: IsNull(),
+      },
+      {
+        email_verification_token_hash: tokenHash,
+        email_verification_expires_at: expiresAt,
+      },
+    );
+    if (result.affected !== 1) return;
 
-    const transporter = createTransport({
-      host: mail.host,
-      port: mail.port,
-      secure: mail.secure,
-      auth: { user: mail.user, pass: mail.password },
-    });
     const verifyUrl = `${mail.frontendUrl.replace(/\/$/, '')}/verificar-email?token=${encodeURIComponent(token)}`;
-    await transporter.sendMail({
-      from: mail.from,
+    await this.sendEmail(mail, {
       to: usuario.email,
       subject: 'Confirme seu e-mail',
       text: `Confirme seu cadastro usando este link. Ele expira em 24 horas: ${verifyUrl}`,
       html: this.renderVerificationEmail(verifyUrl),
     });
+  }
+
+  private async sendEmail(
+    mail: ReturnType<AuthService['getEmailConfiguration']>,
+    message: { to: string; subject: string; text: string; html: string },
+  ) {
+    try {
+      const response = await fetch(mail.relayUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ secret: mail.relaySecret, ...message }),
+        signal: AbortSignal.timeout(20_000),
+      });
+      if (!response.ok) throw new Error('Relay HTTP error');
+      const payload = (await response.json()) as { ok?: boolean };
+      if (payload?.ok !== true) throw new Error('Relay rejected message');
+    } catch (error) {
+      this.logger.error(
+        'Email verification relay delivery failed',
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw new ServiceUnavailableException('Serviço de e-mail indisponível');
+    }
   }
 
   private renderVerificationEmail(verificationUrl: string) {
@@ -295,34 +335,25 @@ export class AuthService {
 
   async verifyEmail(dto: { token: string }) {
     const tokenHash = createHash('sha256').update(dto.token).digest('hex');
-    const usuario = await this.usuariosRepository.findOne({
-      where: {
-        email_verification_token_hash: tokenHash,
-        deleted_at: IsNull(),
-      },
-      select: {
-        id_usuario: true,
-        email_verified_at: true,
-        email_verification_token_hash: true,
-        email_verification_expires_at: true,
-        data_cadastro: true,
-      },
-    });
+    const now = new Date();
     const retentionDeadline = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
-    if (
-      !usuario ||
-      usuario.email_verified_at ||
-      !usuario.email_verification_expires_at ||
-      usuario.email_verification_expires_at <= new Date() ||
-      usuario.data_cadastro <= retentionDeadline
-    ) {
+    const result = await this.usuariosRepository
+      .createQueryBuilder()
+      .update(Usuario)
+      .set({
+        email_verified_at: now,
+        email_verification_token_hash: null,
+        email_verification_expires_at: null,
+      })
+      .where('email_verification_token_hash = :tokenHash', { tokenHash })
+      .andWhere('email_verified_at IS NULL')
+      .andWhere('deleted_at IS NULL')
+      .andWhere('email_verification_expires_at > :now', { now })
+      .andWhere('data_cadastro > :retentionDeadline', { retentionDeadline })
+      .execute();
+    if (result.affected !== 1) {
       throw new BadRequestException('Este link de confirmação é inválido ou expirou');
     }
-
-    usuario.email_verified_at = new Date();
-    usuario.email_verification_token_hash = null;
-    usuario.email_verification_expires_at = null;
-    await this.usuariosRepository.save(usuario);
     return { message: 'E-mail confirmado com sucesso. Faça login para continuar.' };
   }
 
@@ -343,7 +374,7 @@ export class AuthService {
     const retentionDeadline = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
     if (usuario && !usuario.email_verified_at && usuario.data_cadastro > retentionDeadline) {
       try {
-        await this.deliverEmailVerification(usuario, this.getMailConfiguration());
+        await this.deliverEmailVerification(usuario, this.getEmailConfiguration());
       } catch (error) {
         this.logger.error(
           'Email verification delivery failed',

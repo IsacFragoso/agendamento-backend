@@ -5,8 +5,10 @@ describe('SchedulesService', () => {
     const existing = { id_horario: 5, dia_semana: 2, hora_inicio: '08:00', hora_fim: '12:00' };
     const horariosRepository = {
       findOne: jest.fn().mockResolvedValue(existing),
+      find: jest.fn().mockResolvedValue([existing]),
       create: jest.fn((value) => value),
-      save: jest.fn(),
+      save: jest.fn().mockImplementation(async (value) => value),
+      remove: jest.fn(),
     };
     const service = new SchedulesService(
       { findOne: jest.fn().mockResolvedValue({ id_usuario: 7 }) } as any,
@@ -26,8 +28,8 @@ describe('SchedulesService', () => {
         7,
         'PRESTADOR',
       ),
-    ).resolves.toBe(existing);
-    expect(horariosRepository.save).not.toHaveBeenCalled();
+    ).resolves.toEqual(existing);
+    expect(horariosRepository.save).toHaveBeenCalledWith(existing);
   });
 
   it('builds slots in São Paulo time and flags taken ones', async () => {
