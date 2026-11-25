@@ -182,12 +182,30 @@ describe('AuthService', () => {
     );
 
     expect(html).toContain('SAPNE');
-    expect(html).toContain('Confirme seu e-mail');
+    expect(html).toContain('Seu cadastro está quase pronto');
     expect(html).toContain(
       'href="http://localhost:5173/verificar-email?token=abc&amp;source=test"',
     );
     expect(html).not.toContain('{{verificationUrl}}');
     expect(html).not.toContain('{{appName}}');
+  });
+
+  it('uses the deployed frontend URL when no frontend URL is configured', () => {
+    const config = {
+      get: jest.fn((key: string) => {
+        const values: Record<string, string> = {
+          MAIL_HOST: 'smtp.example.com',
+          MAIL_USER: 'sender@example.com',
+          MAIL_PASSWORD: 'password',
+        };
+        return values[key];
+      }),
+    };
+    const svc = new AuthService({} as any, {} as any, {} as any, undefined, config as any);
+
+    expect((svc as any).getMailConfiguration().frontendUrl).toBe(
+      'https://isacfragoso.github.io/agendamento-frontend/',
+    );
   });
 
   it('renders the password reset template with the project name and escaped reset URL', () => {

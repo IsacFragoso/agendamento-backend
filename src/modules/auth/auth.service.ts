@@ -145,7 +145,8 @@ export class AuthService {
       secure,
       auth: { user, pass: password },
     });
-    const frontendUrl = config?.get<string>('FRONTEND_URL') || 'http://localhost:5173';
+    const frontendUrl =
+      config?.get<string>('FRONTEND_URL') || 'https://isacfragoso.github.io/agendamento-frontend/';
     const resetUrl = `${frontendUrl.replace(/\/$/, '')}/recuperar-senha?token=${encodeURIComponent(token)}`;
     await transporter.sendMail({
       from,
@@ -226,7 +227,9 @@ export class AuthService {
       from,
       port: Number(config?.get('MAIL_PORT', 587)),
       secure: config?.get<string>('MAIL_SECURE') === 'true',
-      frontendUrl: config?.get<string>('FRONTEND_URL') || 'http://localhost:5173',
+      frontendUrl:
+        config?.get<string>('FRONTEND_URL') ||
+        'https://isacfragoso.github.io/agendamento-frontend/',
     };
   }
 
