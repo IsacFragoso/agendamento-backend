@@ -51,7 +51,8 @@ export class UsersService {
   ) {}
 
   async create(dto: CreateUsuarioDto, ipAddress = 'unknown') {
-    const existing = await this.usuariosRepository.findOne({ where: { email: dto.email } });
+    const email = dto.email.trim().toLowerCase();
+    const existing = await this.usuariosRepository.findOne({ where: { email } });
     if (existing) {
       throw new ConflictException('E-mail já cadastrado');
     }
@@ -67,7 +68,7 @@ export class UsersService {
 
     const usuario = this.usuariosRepository.create({
       nome_completo: nomeCompleto.length >= 2 ? nomeCompleto : 'Cliente',
-      email: dto.email,
+      email,
       telefone,
       foto_perfil: dto.foto_perfil ?? null,
       tipo_conta: 'CLIENTE',
@@ -581,7 +582,12 @@ export class UsersService {
 
   private withoutPassword(usuario: Usuario) {
     const safeUser = Object.fromEntries(
-      Object.entries(usuario).filter(([key]) => key !== 'senha_hash'),
+      Object.entries(usuario).filter(
+        ([key]) =>
+          key !== 'senha_hash' &&
+          key !== 'email_verification_token_hash' &&
+          key !== 'email_verification_expires_at',
+      ),
     ) as Partial<Usuario>;
     return safeUser;
   }

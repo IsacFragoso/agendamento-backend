@@ -13,6 +13,7 @@ import { PerfilPrestador } from '../../users/entities/perfil-prestador.entity';
 @Check('CK_horarios_dia', '"dia_semana" BETWEEN 0 AND 6')
 @Check('CK_horarios_intervalo', '"hora_inicio" < "hora_fim"')
 @Unique('UQ_horarios_provider_interval', ['id_prestador', 'dia_semana', 'hora_inicio', 'hora_fim'])
+@Unique('UQ_horarios_provider_day', ['id_prestador', 'dia_semana'])
 export class Horario {
   @PrimaryGeneratedColumn({ name: 'id_horario' })
   id_horario: number;

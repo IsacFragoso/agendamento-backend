@@ -130,28 +130,26 @@ describe('AuthService', () => {
 
   it('rejects a verification link for an account older than the retention period', async () => {
     const token = 'a'.repeat(64);
-    const usuario = {
-      id_usuario: 1,
-      email_verified_at: null,
-      email_verification_expires_at: new Date(Date.now() + 60_000),
-      data_cadastro: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
+    const queryBuilder = {
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ affected: 0 }),
     };
     const usuariosRepo = {
-      findOne: jest.fn().mockResolvedValue(usuario),
-      save: jest.fn(),
+      createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
     } as any;
     const svc = new AuthService(usuariosRepo, {} as any, {} as any);
 
     await expect(svc.verifyEmail({ token })).rejects.toBeInstanceOf(BadRequestException);
-    expect(usuariosRepo.findOne).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          email_verification_token_hash: createHash('sha256').update(token).digest('hex'),
-        }),
-        select: expect.objectContaining({ data_cadastro: true }),
-      }),
+    expect(queryBuilder.where).toHaveBeenCalledWith('email_verification_token_hash = :tokenHash', {
+      tokenHash: createHash('sha256').update(token).digest('hex'),
+    });
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      'data_cadastro > :retentionDeadline',
+      expect.objectContaining({ retentionDeadline: expect.any(Date) }),
     );
-    expect(usuariosRepo.save).not.toHaveBeenCalled();
   });
 
   it('cleans up only expired, unverified client accounts without related records', async () => {
@@ -184,7 +182,7 @@ describe('AuthService', () => {
     );
 
     expect(html).toContain('SAPNE');
-    expect(html).toContain('fill="none" stroke="#ffffff"');
+    expect(html).toContain('Confirme seu e-mail');
     expect(html).toContain(
       'href="http://localhost:5173/verificar-email?token=abc&amp;source=test"',
     );
@@ -200,7 +198,9 @@ describe('AuthService', () => {
 
     expect(html).toContain('Redefina sua senha');
     expect(html).toContain('SAPNE');
-    expect(html).toContain('href="http://localhost:5173/recuperar-senha?token=abc&amp;source=test"');
+    expect(html).toContain(
+      'href="http://localhost:5173/recuperar-senha?token=abc&amp;source=test"',
+    );
     expect(html).not.toContain('{{resetUrl}}');
     expect(html).not.toContain('{{appName}}');
   });

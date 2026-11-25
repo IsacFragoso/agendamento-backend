@@ -94,6 +94,14 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   FRONTEND_URL?: string;
+
+  @IsOptional()
+  @IsString()
+  GMAIL_APPS_SCRIPT_URL?: string;
+
+  @IsOptional()
+  @IsString()
+  GMAIL_APPS_SCRIPT_SECRET?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>) {
